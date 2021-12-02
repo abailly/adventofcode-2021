@@ -1,12 +1,19 @@
 [package]
 name    = "aoc2021"
 version = "0.1.0"
+edition = "2018"
 
 [lib]
 crate-type = ["lib", "dylib"]
+
+[dependencies]
+nom = "6.0"
 
 [[bin]]
 name = "day1"
 
 [[bin]]
 name = "day1_part2"
+
+[[bin]]
+name = "day2"
