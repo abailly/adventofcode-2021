@@ -11,6 +11,7 @@ use nom::Err;
 // Wow. that's a type....
 type E<'a> = Err<Error<&'a str>>;
 
+/// Possible moves
 #[derive(Debug, Clone, PartialEq, Copy)]
 pub enum Move {
     Up,
@@ -18,6 +19,9 @@ pub enum Move {
     Forward,
 }
 
+/// Parse a single move order
+/// This function does not try to interpret the moves, it  only
+/// parses them and produce typed structure representing the move.
 pub fn parse_move(input: &str) -> Option<(Move, i32)> {
     let up = map(tag("up"), |_| Move::Up);
     let down = map(tag("down"), |_| Move::Down);
