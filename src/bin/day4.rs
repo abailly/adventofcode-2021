@@ -39,9 +39,7 @@ fn play1(bingo: &mut Bingo) -> i32 {
         for row in board.cells.iter_mut() {
             for mut cell in row.iter_mut() {
                 if cell.number == drawn {
-                    println!("found drawn");
                     cell.drawn = true;
-                    println!("cell {:?}", cell);
                 }
             }
         }
@@ -49,16 +47,23 @@ fn play1(bingo: &mut Bingo) -> i32 {
 
     for mut board in bingo.boards.iter_mut() {
         apply_drawn(&mut board);
-        println!("board {:?}", board);
     }
 
-    println!("bingo {:?}", bingo);
     bingo.draw.pop();
     drawn
 }
 
-fn play(bingo: Bingo) -> (Board, i32) {
-    (bingo.boards[0], 0)
+fn has_winning_board(bingo: &Bingo) -> Option<Board> {
+    None
+}
+
+fn play(bingo: &mut Bingo) -> (Board, i32) {
+    let drawn = play1(bingo);
+    if let Some(winning_board) = has_winning_board(&bingo) {
+        (winning_board, drawn)
+    } else {
+        play(bingo)
+    }
 }
 
 fn main() {
@@ -68,8 +73,8 @@ fn main() {
         process::exit(1);
     }
 
-    if let Some(bingo) = parse(&args[1]) {
-        let (winning_board, last_drawn_number) = play(bingo);
+    if let Some(mut bingo) = parse(&args[1]) {
+        let (winning_board, last_drawn_number) = play(&mut bingo);
         let sum_of_undrawn = sum_undrawn(&winning_board);
         println!("{}", sum_of_undrawn * last_drawn_number);
     } else {
@@ -108,10 +113,36 @@ mod tests {
 
         let drawn = play1(&mut bingo);
 
-        println!("bingo {:?}", bingo);
-
         assert_eq!(bingo.draw.len(), 0);
         assert_eq!(drawn, 12);
         assert_eq!(bingo.boards[0].cells[4][3].drawn, true);
+    }
+
+    #[test]
+    fn test_has_winning_board_when_full_row_has_true() {
+        let loss = Cell {
+            number: 10,
+            drawn: false,
+        };
+        let win = Cell {
+            number: 12,
+            drawn: true,
+        };
+        let winning = Board {
+            cells: [[loss; 5], [loss; 5], [loss; 5], [win; 5], [loss; 5]],
+        };
+
+        let not_winning = Board {
+            cells: [[loss; 5], [loss; 5], [loss; 5], [loss; 5], [loss; 5]],
+        };
+
+        let bingo = Bingo {
+            draw: vec![],
+            boards: vec![winning, not_winning],
+        };
+
+        let some_winning = has_winning_board(&bingo);
+
+        assert_eq!(some_winning, Some(winning));
     }
 }
