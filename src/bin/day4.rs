@@ -53,7 +53,22 @@ fn play1(bingo: &mut Bingo) -> i32 {
     drawn
 }
 
+fn is_winning(board: &Board) -> bool {
+    for row in board.cells {
+        if row.iter().fold(true, |acc, cell| cell.drawn && acc) {
+            return true;
+        }
+    }
+
+    false
+}
+
 fn has_winning_board(bingo: &Bingo) -> Option<Board> {
+    for board in &bingo.boards {
+        if is_winning(board) {
+            return Some(*board);
+        }
+    }
     None
 }
 
