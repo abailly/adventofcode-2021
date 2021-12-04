@@ -3,6 +3,7 @@ use aoc2021::parser::{parse_bits, to_int, Bit};
 use core::fmt::Error;
 use std::cmp::Ordering;
 use std::env;
+use std::fs::read_to_string;
 use std::process;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -25,11 +26,15 @@ struct Bingo {
 }
 
 fn parse(file: &str) -> Option<Bingo> {
+    if let Ok(input) = read_to_string(file) {}
     None
 }
 
 fn sum_undrawn(board: &Board) -> i32 {
-    0
+    board
+        .cells
+        .iter()
+        .fold(0, |n, row| row.iter().fold(n, |m, cell| cell.number + m))
 }
 
 fn play1(bingo: &mut Bingo) -> i32 {
@@ -56,6 +61,16 @@ fn play1(bingo: &mut Bingo) -> i32 {
 fn is_winning(board: &Board) -> bool {
     for row in board.cells {
         if row.iter().fold(true, |acc, cell| cell.drawn && acc) {
+            return true;
+        }
+    }
+
+    for i in 0..4 {
+        if board
+            .cells
+            .iter()
+            .fold(true, |acc, row| row[i].drawn && acc)
+        {
             return true;
         }
     }
@@ -145,6 +160,40 @@ mod tests {
         };
         let winning = Board {
             cells: [[loss; 5], [loss; 5], [loss; 5], [win; 5], [loss; 5]],
+        };
+
+        let not_winning = Board {
+            cells: [[loss; 5], [loss; 5], [loss; 5], [loss; 5], [loss; 5]],
+        };
+
+        let bingo = Bingo {
+            draw: vec![],
+            boards: vec![winning, not_winning],
+        };
+
+        let some_winning = has_winning_board(&bingo);
+
+        assert_eq!(some_winning, Some(winning));
+    }
+
+    #[test]
+    fn test_has_winning_board_when_full_column_has_true() {
+        let loss = Cell {
+            number: 10,
+            drawn: false,
+        };
+        let win = Cell {
+            number: 12,
+            drawn: true,
+        };
+        let winning = Board {
+            cells: [
+                [win, loss, loss, loss, loss],
+                [win, loss, loss, loss, loss],
+                [win, loss, loss, loss, loss],
+                [win, loss, loss, loss, loss],
+                [win, loss, loss, loss, loss],
+            ],
         };
 
         let not_winning = Board {
