@@ -25,6 +25,7 @@ pub struct Vent {
     from: Pos,
     to: Pos,
 }
+
 fn dir(vent: &Vent) -> (i32, i32) {
     let dx = match vent.to.x.cmp(&vent.from.x) {
         Ordering::Less => -1,
@@ -53,7 +54,7 @@ pub fn positions(vent: &Vent) -> Vec<Pos> {
     }
 
     res.push(vent.to);
-    res.clone()
+    res
 }
 
 pub fn is_ortho(vent: &Vent) -> bool {
@@ -181,7 +182,7 @@ mod tests {
     ];
 
     #[test]
-    fn test_filter_orthogonal_vents() {
+    fn filter_orthogonal_vents() {
         let sample_vents = SAMPLE_VENTS.to_vec();
         assert_eq!(
             sample_vents
@@ -194,12 +195,12 @@ mod tests {
     }
 
     #[test]
-    fn test_retrieve_bounds_from_vents() {
+    fn retrieve_bounds_from_vents() {
         assert_eq!(bounds(&SAMPLE_VENTS.to_vec()), (10, 10));
     }
 
     #[test]
-    fn test_can_draw_a_vertical_line() {
+    fn can_draw_a_vertical_line() {
         let vents = vec![Vent {
             from: Pos { x: 1, y: 0 },
             to: Pos { x: 1, y: 3 },
@@ -215,7 +216,7 @@ mod tests {
     }
 
     #[test]
-    fn test_can_draw_a_horizontal_line() {
+    fn can_draw_a_horizontal_line() {
         let vents = vec![Vent {
             from: Pos { x: 0, y: 3 },
             to: Pos { x: 3, y: 3 },
@@ -231,7 +232,7 @@ mod tests {
     }
 
     #[test]
-    fn test_can_draw_a_horizontal_line_inverted() {
+    fn can_draw_a_horizontal_line_inverted() {
         let vents = vec![Vent {
             from: Pos { x: 3, y: 3 },
             to: Pos { x: 0, y: 3 },
@@ -247,8 +248,9 @@ mod tests {
     }
 
     #[test]
-    fn test_can_compute_intersection() {
+    fn can_compute_intersection() {
         let mut board = vec![vec![0; 10]; 10];
+
         draw_lines(
             &mut board,
             SAMPLE_VENTS.to_vec().into_iter().filter(is_ortho).collect(),
@@ -258,7 +260,7 @@ mod tests {
     }
 
     #[test]
-    fn test_can_parse_vents_from_a_vec_of_strings() {
+    fn can_parse_vents_from_a_vec_of_strings() {
         let input = vec![
             "0,9 -> 5,9",
             "8,0 -> 0,8",
