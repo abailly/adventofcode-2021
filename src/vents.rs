@@ -7,6 +7,7 @@ use nom::combinator::map_res;
 use nom::error::Error;
 use nom::sequence::tuple;
 use nom::Err;
+use nom::IResult;
 use std::cmp::max;
 use std::cmp::Ordering;
 use std::fs::read_to_string;
@@ -59,31 +60,24 @@ pub fn is_ortho(vent: &Vent) -> bool {
     vent.from.x == vent.to.x || vent.from.y == vent.to.y
 }
 
+fn num(input: &str) -> IResult<&str, i32> {
+    map_res(digit1, |s: &str| s.parse::<i32>())(input)
+}
+
+fn pos(input: &str) -> IResult<&str, Pos> {
+    map(tuple((num, char(','), num)), |(x, _, y)| Pos {
+        x: x as usize,
+        y: y as usize,
+    })(input)
+}
+
 fn parse_vent(input: &str) -> Option<Vent> {
-    let num = map_res(digit1, |s: &str| s.parse::<i32>());
-    let num1 = map_res(digit1, |s: &str| s.parse::<i32>());
-    let pos = map(tuple((num, char(','), num1)), |(x, _, y)| Pos {
-        x: x as usize,
-        y: y as usize,
-    });
-    let num2 = map_res(digit1, |s: &str| s.parse::<i32>());
-    let num21 = map_res(digit1, |s: &str| s.parse::<i32>());
-    let pos2 = map(tuple((num2, char(','), num21)), |(x, _, y)| Pos {
-        x: x as usize,
-        y: y as usize,
-    });
-    let mut vent = tuple((pos, space1, tag("->"), space1, pos2));
+    let mut vent = tuple((pos, space1, tag("->"), space1, pos));
     let res: Result<_, E> = vent(&input.trim());
 
     match res {
-        Ok((_, (from, _, _, _, to))) => {
-            println!("from {:?}, to {:?}", from, to);
-            Some(Vent { from, to })
-        }
-        Err(e) => {
-            println!("error {:?}", e);
-            None
-        }
+        Ok((_, (from, _, _, _, to))) => Some(Vent { from, to }),
+        Err(_) => None,
     }
 }
 
