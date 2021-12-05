@@ -1,4 +1,5 @@
 use std::cmp::max;
+use std::cmp::Ordering;
 use std::fs::read_to_string;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -12,14 +13,35 @@ pub struct Vent {
     from: Pos,
     to: Pos,
 }
+fn dir(vent: &Vent) -> (i32, i32) {
+    let dx = match vent.to.x.cmp(&vent.from.x) {
+        Ordering::Less => -1,
+        Ordering::Equal => 0,
+        Ordering::Greater => 1,
+    };
+    let dy = match vent.to.y.cmp(&vent.from.y) {
+        Ordering::Less => -1,
+        Ordering::Equal => 0,
+        Ordering::Greater => 1,
+    };
+
+    (dx, dy)
+}
 
 pub fn positions(vent: &Vent) -> Vec<Pos> {
     let mut res = vec![];
-    for i in vent.from.x..(vent.to.x + 1) {
-        for j in vent.from.y..(vent.to.y + 1) {
-            res.push(Pos { x: i, y: j })
-        }
+    let (dx, dy) = dir(&vent);
+    let mut x = vent.from.x;
+    let mut y = vent.from.y;
+
+    while x != vent.to.x || y != vent.to.y {
+        res.push(Pos { x, y });
+        println!("({},{})", x, y);
+        x = (x as i32 + dx) as usize;
+        y = (y as i32 + dy) as usize;
     }
+
+    res.push(vent.to);
     res.clone()
 }
 
@@ -33,7 +55,7 @@ fn parse_vents(input: &Vec<&str>) -> Option<Vec<Vent>> {
 
 fn draw_line(board: &mut Vec<Vec<u8>>, vent: &Vent) {
     for pos in positions(vent) {
-        board[pos.y][pos.x] = 1;
+        board[pos.y][pos.x] += 1;
     }
 }
 
@@ -195,6 +217,22 @@ mod tests {
         let vents = vec![Vent {
             from: Pos { x: 0, y: 3 },
             to: Pos { x: 3, y: 3 },
+        }];
+        let mut board = vec![vec![0; 4]; 4];
+
+        draw_lines(&mut board, vents);
+
+        assert_eq!(
+            board,
+            [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [1, 1, 1, 1]]
+        );
+    }
+
+    #[test]
+    fn test_can_draw_a_horizontal_line_inverted() {
+        let vents = vec![Vent {
+            from: Pos { x: 3, y: 3 },
+            to: Pos { x: 0, y: 3 },
         }];
         let mut board = vec![vec![0; 4]; 4];
 
