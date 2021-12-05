@@ -100,53 +100,54 @@ pub fn parse(file: &str) -> Option<(Vec<Vent>, usize, usize)> {
 mod tests {
     use super::*;
 
+    const SAMPLE_VENTS: [Vent; 10] = [
+        Vent {
+            from: Pos { x: 0, y: 9 },
+            to: Pos { x: 5, y: 9 },
+        },
+        Vent {
+            from: Pos { x: 8, y: 0 },
+            to: Pos { x: 0, y: 8 },
+        },
+        Vent {
+            from: Pos { x: 9, y: 4 },
+            to: Pos { x: 3, y: 4 },
+        },
+        Vent {
+            from: Pos { x: 2, y: 2 },
+            to: Pos { x: 2, y: 1 },
+        },
+        Vent {
+            from: Pos { x: 7, y: 0 },
+            to: Pos { x: 7, y: 4 },
+        },
+        Vent {
+            from: Pos { x: 6, y: 4 },
+            to: Pos { x: 2, y: 0 },
+        },
+        Vent {
+            from: Pos { x: 0, y: 9 },
+            to: Pos { x: 2, y: 9 },
+        },
+        Vent {
+            from: Pos { x: 3, y: 4 },
+            to: Pos { x: 1, y: 4 },
+        },
+        Vent {
+            from: Pos { x: 0, y: 0 },
+            to: Pos { x: 8, y: 8 },
+        },
+        Vent {
+            from: Pos { x: 5, y: 5 },
+            to: Pos { x: 8, y: 2 },
+        },
+    ];
+
     #[test]
     fn test_filter_orthogonal_vents() {
-        let vents = vec![
-            Vent {
-                from: Pos { x: 0, y: 9 },
-                to: Pos { x: 5, y: 9 },
-            },
-            Vent {
-                from: Pos { x: 8, y: 0 },
-                to: Pos { x: 0, y: 8 },
-            },
-            Vent {
-                from: Pos { x: 9, y: 4 },
-                to: Pos { x: 3, y: 4 },
-            },
-            Vent {
-                from: Pos { x: 2, y: 2 },
-                to: Pos { x: 2, y: 1 },
-            },
-            Vent {
-                from: Pos { x: 7, y: 0 },
-                to: Pos { x: 7, y: 4 },
-            },
-            Vent {
-                from: Pos { x: 6, y: 4 },
-                to: Pos { x: 2, y: 0 },
-            },
-            Vent {
-                from: Pos { x: 0, y: 9 },
-                to: Pos { x: 2, y: 9 },
-            },
-            Vent {
-                from: Pos { x: 3, y: 4 },
-                to: Pos { x: 1, y: 4 },
-            },
-            Vent {
-                from: Pos { x: 0, y: 0 },
-                to: Pos { x: 8, y: 8 },
-            },
-            Vent {
-                from: Pos { x: 5, y: 5 },
-                to: Pos { x: 8, y: 2 },
-            },
-        ];
-
+        let sample_vents = SAMPLE_VENTS.to_vec();
         assert_eq!(
-            vents
+            sample_vents
                 .into_iter()
                 .filter(is_ortho)
                 .collect::<Vec<Vent>>()
@@ -157,50 +158,7 @@ mod tests {
 
     #[test]
     fn test_retrieve_bounds_from_vents() {
-        let vents = vec![
-            Vent {
-                from: Pos { x: 0, y: 9 },
-                to: Pos { x: 5, y: 9 },
-            },
-            Vent {
-                from: Pos { x: 8, y: 0 },
-                to: Pos { x: 0, y: 8 },
-            },
-            Vent {
-                from: Pos { x: 9, y: 4 },
-                to: Pos { x: 3, y: 4 },
-            },
-            Vent {
-                from: Pos { x: 2, y: 2 },
-                to: Pos { x: 2, y: 1 },
-            },
-            Vent {
-                from: Pos { x: 7, y: 0 },
-                to: Pos { x: 7, y: 4 },
-            },
-            Vent {
-                from: Pos { x: 6, y: 4 },
-                to: Pos { x: 2, y: 0 },
-            },
-            Vent {
-                from: Pos { x: 0, y: 9 },
-                to: Pos { x: 2, y: 9 },
-            },
-            Vent {
-                from: Pos { x: 3, y: 4 },
-                to: Pos { x: 1, y: 4 },
-            },
-            Vent {
-                from: Pos { x: 0, y: 0 },
-                to: Pos { x: 8, y: 8 },
-            },
-            Vent {
-                from: Pos { x: 5, y: 5 },
-                to: Pos { x: 8, y: 2 },
-            },
-        ];
-
-        assert_eq!(bounds(&vents), (10, 10));
+        assert_eq!(bounds(&SAMPLE_VENTS.to_vec()), (10, 10));
     }
 
     #[test]
@@ -253,52 +211,32 @@ mod tests {
 
     #[test]
     fn test_can_compute_intersection() {
-        let vents = vec![
-            Vent {
-                from: Pos { x: 0, y: 9 },
-                to: Pos { x: 5, y: 9 },
-            },
-            Vent {
-                from: Pos { x: 8, y: 0 },
-                to: Pos { x: 0, y: 8 },
-            },
-            Vent {
-                from: Pos { x: 9, y: 4 },
-                to: Pos { x: 3, y: 4 },
-            },
-            Vent {
-                from: Pos { x: 2, y: 2 },
-                to: Pos { x: 2, y: 1 },
-            },
-            Vent {
-                from: Pos { x: 7, y: 0 },
-                to: Pos { x: 7, y: 4 },
-            },
-            Vent {
-                from: Pos { x: 6, y: 4 },
-                to: Pos { x: 2, y: 0 },
-            },
-            Vent {
-                from: Pos { x: 0, y: 9 },
-                to: Pos { x: 2, y: 9 },
-            },
-            Vent {
-                from: Pos { x: 3, y: 4 },
-                to: Pos { x: 1, y: 4 },
-            },
-            Vent {
-                from: Pos { x: 0, y: 0 },
-                to: Pos { x: 8, y: 8 },
-            },
-            Vent {
-                from: Pos { x: 5, y: 5 },
-                to: Pos { x: 8, y: 2 },
-            },
-        ];
-
         let mut board = vec![vec![0; 10]; 10];
-        draw_lines(&mut board, vents.into_iter().filter(is_ortho).collect());
+        draw_lines(
+            &mut board,
+            SAMPLE_VENTS.to_vec().into_iter().filter(is_ortho).collect(),
+        );
 
         assert_eq!(intersections(&board), 5);
+    }
+
+    #[test]
+    fn test_can_parse_vents_from_a_vec_of_strings() {
+        let input = vec![
+            "0,9 -> 5,9",
+            "8,0 -> 0,8",
+            "9,4 -> 3,4",
+            "2,2 -> 2,1",
+            "7,0 -> 7,4",
+            "6,4 -> 2,0",
+            "0,9 -> 2,9",
+            "3,4 -> 1,4",
+            "0,0 -> 8,8",
+            "5,5 -> 8,2",
+        ];
+
+        let vents = parse_vents(&input);
+
+        assert_eq!(vents, Some(SAMPLE_VENTS.to_vec()));
     }
 }
