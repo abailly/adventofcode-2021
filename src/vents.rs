@@ -36,7 +36,6 @@ pub fn positions(vent: &Vent) -> Vec<Pos> {
 
     while x != vent.to.x || y != vent.to.y {
         res.push(Pos { x, y });
-        println!("({},{})", x, y);
         x = (x as i32 + dx) as usize;
         y = (y as i32 + dy) as usize;
     }
@@ -66,7 +65,15 @@ pub fn draw_lines(board: &mut Vec<Vec<u8>>, vents: Vec<Vent>) {
 }
 
 pub fn intersections(board: &Vec<Vec<u8>>) -> u32 {
-    0
+    let mut count = 0;
+    for row in board {
+        for cell in row {
+            if *cell >= 2 {
+                count += 1;
+            }
+        }
+    }
+    count
 }
 
 fn bounds(vents: &Vec<Vent>) -> (usize, usize) {
@@ -242,5 +249,56 @@ mod tests {
             board,
             [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [1, 1, 1, 1]]
         );
+    }
+
+    #[test]
+    fn test_can_compute_intersection() {
+        let vents = vec![
+            Vent {
+                from: Pos { x: 0, y: 9 },
+                to: Pos { x: 5, y: 9 },
+            },
+            Vent {
+                from: Pos { x: 8, y: 0 },
+                to: Pos { x: 0, y: 8 },
+            },
+            Vent {
+                from: Pos { x: 9, y: 4 },
+                to: Pos { x: 3, y: 4 },
+            },
+            Vent {
+                from: Pos { x: 2, y: 2 },
+                to: Pos { x: 2, y: 1 },
+            },
+            Vent {
+                from: Pos { x: 7, y: 0 },
+                to: Pos { x: 7, y: 4 },
+            },
+            Vent {
+                from: Pos { x: 6, y: 4 },
+                to: Pos { x: 2, y: 0 },
+            },
+            Vent {
+                from: Pos { x: 0, y: 9 },
+                to: Pos { x: 2, y: 9 },
+            },
+            Vent {
+                from: Pos { x: 3, y: 4 },
+                to: Pos { x: 1, y: 4 },
+            },
+            Vent {
+                from: Pos { x: 0, y: 0 },
+                to: Pos { x: 8, y: 8 },
+            },
+            Vent {
+                from: Pos { x: 5, y: 5 },
+                to: Pos { x: 8, y: 2 },
+            },
+        ];
+
+        let mut board = vec![vec![0; 10]; 10];
+        draw_lines(&mut board, vents.into_iter().filter(is_ortho).collect());
+
+        assert_eq!(intersections(&board), 5);
     }
 }
