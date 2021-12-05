@@ -1,6 +1,17 @@
+use nom::bytes::complete::tag;
+use nom::character::complete::char;
+use nom::character::complete::digit1;
+use nom::character::complete::space1;
+use nom::combinator::map;
+use nom::combinator::map_res;
+use nom::error::Error;
+use nom::sequence::tuple;
+use nom::Err;
 use std::cmp::max;
 use std::cmp::Ordering;
 use std::fs::read_to_string;
+
+type E<'a> = Err<Error<&'a str>>;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Pos {
@@ -48,8 +59,40 @@ pub fn is_ortho(vent: &Vent) -> bool {
     vent.from.x == vent.to.x || vent.from.y == vent.to.y
 }
 
+fn parse_vent(input: &str) -> Option<Vent> {
+    let num = map_res(digit1, |s: &str| s.parse::<i32>());
+    let num1 = map_res(digit1, |s: &str| s.parse::<i32>());
+    let pos = map(tuple((num, char(','), num1)), |(x, _, y)| Pos {
+        x: x as usize,
+        y: y as usize,
+    });
+    let num2 = map_res(digit1, |s: &str| s.parse::<i32>());
+    let num21 = map_res(digit1, |s: &str| s.parse::<i32>());
+    let pos2 = map(tuple((num2, char(','), num21)), |(x, _, y)| Pos {
+        x: x as usize,
+        y: y as usize,
+    });
+    let mut vent = tuple((pos, space1, tag("->"), space1, pos2));
+    let res: Result<_, E> = vent(&input.trim());
+
+    match res {
+        Ok((_, (from, _, _, _, to))) => {
+            println!("from {:?}, to {:?}", from, to);
+            Some(Vent { from, to })
+        }
+        Err(e) => {
+            println!("error {:?}", e);
+            None
+        }
+    }
+}
+
 fn parse_vents(input: &Vec<&str>) -> Option<Vec<Vent>> {
-    None
+    input
+        .iter()
+        .filter(|s| !s.is_empty())
+        .map(|s| parse_vent(s))
+        .collect()
 }
 
 fn draw_line(board: &mut Vec<Vec<u8>>, vent: &Vent) {
