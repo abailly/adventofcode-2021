@@ -101,7 +101,6 @@ pub fn sum_undrawn(board: &Board) -> i32 {
 }
 
 fn play1(bingo: &mut Bingo) -> i32 {
-    println!("play1 {:?}", bingo);
     let drawn = bingo.draw[0];
 
     let apply_drawn = |board: &mut Board| {
@@ -151,13 +150,23 @@ fn has_winning_board(bingo: &Bingo) -> Option<Board> {
     None
 }
 
-pub fn play(bingo: &mut Bingo) -> (Board, i32) {
-    let drawn = play1(bingo);
-    if let Some(winning_board) = has_winning_board(&bingo) {
-        (winning_board, drawn)
-    } else {
-        play(bingo)
+pub fn play(bingo: &mut Bingo) -> Option<(Board, i32)> {
+    let mut winning_boards: Vec<(Board, i32)> = vec![];
+    while !bingo.draw.is_empty() {
+        let drawn = play1(bingo);
+        bingo.boards.retain(|board| {
+            if is_winning(&board) {
+                winning_boards.push((board.clone(), drawn));
+                false
+            } else {
+                true
+            }
+        });
+        println!("#boards {}", bingo.boards.len());
     }
+    let win = winning_boards.pop();
+    println!("winning {:?}", win);
+    win
 }
 
 #[cfg(test)]

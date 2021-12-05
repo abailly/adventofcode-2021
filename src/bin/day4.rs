@@ -12,9 +12,10 @@ fn main() {
     }
 
     if let Some(mut bingo) = parse(&args[1]) {
-        let (winning_board, last_drawn_number) = play(&mut bingo);
-        let sum_of_undrawn = sum_undrawn(&winning_board);
-        println!("{}", sum_of_undrawn * last_drawn_number);
+        if let Some((winning_board, last_drawn_number)) = play(&mut bingo) {
+            let sum_of_undrawn = sum_undrawn(&winning_board);
+            println!("{}", sum_of_undrawn * last_drawn_number);
+        }
     } else {
         println!("fail to parse {}", args[1]);
     }
