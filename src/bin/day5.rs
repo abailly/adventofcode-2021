@@ -1,7 +1,4 @@
-use aoc2021::vents::draw_lines;
-use aoc2021::vents::intersections;
-use aoc2021::vents::parse;
-use std::convert::TryInto;
+use aoc2021::vents::{draw_lines, intersections, parse};
 use std::env;
 use std::process;
 
@@ -13,10 +10,9 @@ fn main() {
     }
 
     if let Some((vents, max_x, max_y)) = parse(&args[1]) {
-        let mut board = vec![vec![0; max_x.try_into().unwrap()]; max_y.try_into().unwrap()];
+        let mut board = vec![vec![0; max_x]; max_y];
         draw_lines(&mut board, vents);
-        let num_intersections = intersections(&board);
-        println!("{}", num_intersections);
+        println!("{}", intersections(&board));
     } else {
         println!("fail to parse {}", args[1]);
     }
