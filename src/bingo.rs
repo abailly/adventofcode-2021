@@ -18,6 +18,7 @@ pub struct Cell {
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Board {
+    num: i32,
     cells: [[Cell; 5]; 5],
 }
 
@@ -29,7 +30,7 @@ pub struct Bingo {
     boards: Vec<Board>,
 }
 
-fn parse_chunk(chunk: &[&str]) -> Board {
+fn parse_chunk(idx: usize, chunk: &[&str]) -> Board {
     let num = map_res(digit1, |s: &str| s.parse::<i32>());
     let mut nums = separated_list1(space1, num);
     let mut rows = vec![];
@@ -53,9 +54,8 @@ fn parse_chunk(chunk: &[&str]) -> Board {
         }
     }
     Board {
-        cells: rows.try_into().unwrap_or_else(|v: Vec<_>| {
-            panic!("Expected a Vec of length {} but it was {}", 5, v.len())
-        }),
+        num: idx.try_into().unwrap(),
+        cells: rows.try_into().unwrap(),
     }
 }
 
@@ -65,7 +65,11 @@ fn parse_boards(input: &Vec<&str>) -> Vec<Board> {
         .filter(|&s| !s.is_empty())
         .map(|&s| s)
         .collect();
-    lines.chunks(5).map(|chunk| parse_chunk(chunk)).collect()
+    lines
+        .chunks(5)
+        .enumerate()
+        .map(|(i, chunk)| parse_chunk(i, chunk))
+        .collect()
 }
 
 fn parse_bingo(input: &Vec<&str>) -> Option<Bingo> {
@@ -152,7 +156,7 @@ fn has_winning_board(bingo: &Bingo) -> Option<Board> {
 
 pub fn play(bingo: &mut Bingo) -> Option<(Board, i32)> {
     let mut winning_boards: Vec<(Board, i32)> = vec![];
-    while !bingo.draw.is_empty() {
+    while !bingo.draw.is_empty() && !bingo.boards.is_empty() {
         let drawn = play1(bingo);
         bingo.boards.retain(|board| {
             if is_winning(&board) {
@@ -162,11 +166,23 @@ pub fn play(bingo: &mut Bingo) -> Option<(Board, i32)> {
                 true
             }
         });
-        println!("#boards {}", bingo.boards.len());
+        println!("#boards {}, drawn {}", bingo.boards.len(), drawn);
     }
-    let win = winning_boards.pop();
-    println!("winning {:?}", win);
-    win
+    let (first_win, d) = winning_boards[0];
+    println!(
+        "first winning #board {}, score {}",
+        first_win.num,
+        sum_undrawn(&first_win) * d
+    );
+    if let Some(last_win) = winning_boards.pop() {
+        println!(
+            "last winning #board {}, score {}",
+            last_win.0.num,
+            sum_undrawn(&last_win.0) * last_win.1
+        );
+        return Some(last_win);
+    }
+    None
 }
 
 #[cfg(test)]
@@ -184,6 +200,7 @@ mod tests {
             drawn: false,
         };
         let board = Board {
+            num: 0,
             cells: [
                 [ten; 5],
                 [ten; 5],
@@ -216,10 +233,12 @@ mod tests {
             drawn: true,
         };
         let winning = Board {
+            num: 0,
             cells: [[loss; 5], [loss; 5], [loss; 5], [win; 5], [loss; 5]],
         };
 
         let not_winning = Board {
+            num: 0,
             cells: [[loss; 5], [loss; 5], [loss; 5], [loss; 5], [loss; 5]],
         };
 
@@ -244,6 +263,7 @@ mod tests {
             drawn: true,
         };
         let winning = Board {
+            num: 0,
             cells: [
                 [win, loss, loss, loss, loss],
                 [win, loss, loss, loss, loss],
@@ -254,6 +274,7 @@ mod tests {
         };
 
         let not_winning = Board {
+            num: 0,
             cells: [[loss; 5], [loss; 5], [loss; 5], [loss; 5], [loss; 5]],
         };
 
@@ -282,6 +303,7 @@ mod tests {
             Some(Bingo {
                 draw: vec![1, 2, 3, 4],
                 boards: vec![Board {
+                    num: 0,
                     cells: [
                         [
                             Cell {
@@ -431,6 +453,7 @@ mod tests {
                 ],
                 boards: vec![
                     Board {
+                        num: 0,
                         cells: [
                             [
                                 Cell {
@@ -545,6 +568,7 @@ mod tests {
                         ]
                     },
                     Board {
+                        num: 1,
                         cells: [
                             [
                                 Cell {
@@ -659,6 +683,7 @@ mod tests {
                         ]
                     },
                     Board {
+                        num: 2,
                         cells: [
                             [
                                 Cell {
