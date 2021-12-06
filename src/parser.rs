@@ -7,8 +7,11 @@ use nom::combinator::map;
 use nom::combinator::map_res;
 use nom::error::Error;
 use nom::multi::many1;
+use nom::multi::separated_list1;
 use nom::sequence::tuple;
 use nom::Err;
+use nom::IResult;
+use std::fs::read_to_string;
 
 // Wow. that's a type....
 type E<'a> = Err<Error<&'a str>>;
@@ -21,6 +24,11 @@ pub enum Move {
     Forward,
 }
 
+/// Parse a single integer
+pub fn num(input: &str) -> IResult<&str, i32> {
+    map_res(digit1, |s: &str| s.parse::<i32>())(input)
+}
+
 /// Parse a single move order
 /// This function does not try to interpret the moves, it  only
 /// parses them and produce typed structure representing the move.
@@ -29,7 +37,6 @@ pub fn parse_move(input: &str) -> Option<(Move, i32)> {
     let down = map(tag("down"), |_| Move::Down);
     let fwd = map(tag("forward"), |_| Move::Forward);
     let mov = alt((up, down, fwd));
-    let num = map_res(digit1, |s: &str| s.parse::<i32>());
 
     let res: Result<_, E> = tuple((mov, space1, num))(input);
     match res {
@@ -63,6 +70,25 @@ pub fn to_int(bits: &Vec<Bit>) -> i32 {
         Bit::One => acc * 2 + 1,
         Bit::Zero => acc * 2,
     })
+}
+
+/// Parse a list of comma-separated numbers from a string
+/// Remove trailing new-line if any
+pub fn parse_csv(input: &Vec<&str>) -> Option<Vec<i32>> {
+    let mut nums = separated_list1(char(','), num);
+    println!("{:?}", input);
+    match nums(input[0]) {
+        Ok((_, res)) => Some(res),
+        Err(_) => None,
+    }
+}
+
+/// Parse a file into a string and call given parser on this string
+pub fn parse_file<R>(file: &str, parser: fn(&Vec<&str>) -> Option<R>) -> Option<R> {
+    if let Ok(input) = read_to_string(file) {
+        return parser(&input.split("\n").collect::<Vec<&str>>());
+    }
+    None
 }
 
 #[cfg(test)]
@@ -108,5 +134,10 @@ mod tests {
             ]),
             39
         );
+    }
+
+    #[test]
+    fn can_parse_csv_line() {
+        assert_eq!(parse_csv("3,4,3,1,2"), Some(vec![3, 4, 3, 1, 2]));
     }
 }

@@ -1,3 +1,4 @@
+use crate::parser::num;
 use nom::bytes::complete::tag;
 use nom::character::complete::char;
 use nom::character::complete::digit1;
@@ -59,10 +60,6 @@ pub fn positions(vent: &Vent) -> Vec<Pos> {
 
 pub fn is_ortho(vent: &Vent) -> bool {
     vent.from.x == vent.to.x || vent.from.y == vent.to.y
-}
-
-fn num(input: &str) -> IResult<&str, i32> {
-    map_res(digit1, |s: &str| s.parse::<i32>())(input)
 }
 
 fn pos(input: &str) -> IResult<&str, Pos> {
