@@ -145,15 +145,6 @@ fn is_winning(board: &Board) -> bool {
     false
 }
 
-fn has_winning_board(bingo: &Bingo) -> Option<Board> {
-    for board in &bingo.boards {
-        if is_winning(board) {
-            return Some(*board);
-        }
-    }
-    None
-}
-
 pub fn play(bingo: &mut Bingo) -> Option<(Board, i32)> {
     let mut winning_boards: Vec<(Board, i32)> = vec![];
     while !bingo.draw.is_empty() && !bingo.boards.is_empty() {
@@ -220,6 +211,15 @@ mod tests {
         assert_eq!(bingo.draw.len(), 0);
         assert_eq!(drawn, 12);
         assert_eq!(bingo.boards[0].cells[4][3].drawn, true);
+    }
+
+    fn has_winning_board(bingo: &Bingo) -> Option<Board> {
+        for board in &bingo.boards {
+            if is_winning(board) {
+                return Some(*board);
+            }
+        }
+        None
     }
 
     #[test]

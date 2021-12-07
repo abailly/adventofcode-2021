@@ -1,10 +1,8 @@
 use crate::parser::num;
 use nom::bytes::complete::tag;
 use nom::character::complete::char;
-use nom::character::complete::digit1;
 use nom::character::complete::space1;
 use nom::combinator::map;
-use nom::combinator::map_res;
 use nom::error::Error;
 use nom::sequence::tuple;
 use nom::Err;
