@@ -74,8 +74,8 @@ pub fn to_int(bits: &Vec<Bit>) -> i32 {
 
 /// Parse a list of comma-separated numbers from a string
 /// Remove trailing new-line if any
-pub fn parse_csv(input: &Vec<&str>) -> Option<Vec<i32>> {
-    let mut nums = separated_list1(char(','), num);
+pub fn parse_csv(input: &Vec<&str>) -> Option<Vec<i64>> {
+    let mut nums = separated_list1(char(','), map(num, |n| n as i64));
     println!("{:?}", input);
     match nums(input[0]) {
         Ok((_, res)) => Some(res),
