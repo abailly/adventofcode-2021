@@ -1,22 +1,10 @@
-use aoc2021::nums::bounds;
-use aoc2021::nums::sum_of_n;
 use aoc2021::parser::parse_csv;
 use aoc2021::parser::parse_file;
-use core::i64::MAX;
-use std::cmp::min;
 use std::env;
 use std::process;
 
-fn solve(puzzle: &Vec<i64>) -> i64 {
-    let (from, to) = bounds(puzzle);
-    let mut min_fuel = MAX;
-    for i in from..to {
-        min_fuel = min(
-            min_fuel,
-            puzzle.iter().fold(0, |n, j| n + sum_of_n((i - j).abs())),
-        );
-    }
-    min_fuel
+fn solve(_puzzle: &Vec<i64>) -> i64 {
+    0
 }
 
 fn main() {

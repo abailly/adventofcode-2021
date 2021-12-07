@@ -8,6 +8,7 @@ crate-type = ["lib", "dylib"]
 
 [dependencies]
 nom = "6.0"
+num = "0.4"
 
 [[bin]]
 name = "day1"
@@ -32,3 +33,6 @@ name = "day6"
 
 [[bin]]
 name = "day7"
+
+[[bin]]
+name = "day8"
