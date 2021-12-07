@@ -135,9 +135,4 @@ mod tests {
             39
         );
     }
-
-    #[test]
-    fn can_parse_csv_line() {
-        assert_eq!(parse_csv("3,4,3,1,2"), Some(vec![3, 4, 3, 1, 2]));
-    }
 }
