@@ -18,7 +18,7 @@ fn evolve(fishes: &mut [u64; 9], days: u32) {
     }
 }
 
-fn fill(fishes: &mut [u64; 9], lanternfishes: Vec<i32>) {
+fn fill(fishes: &mut [u64; 9], lanternfishes: Vec<i64>) {
     for i in 0..fishes.len() {
         fishes[i] = 0;
     }
