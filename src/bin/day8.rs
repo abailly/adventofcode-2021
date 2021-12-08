@@ -54,15 +54,17 @@ fn encode(codes: &Vec<&str>) -> [u8; 10] {
     digits
 }
 
-fn decode(s: &str, encoded: [u8; 10]) -> u8 {
-    let bits = as_bits(s);
-    let mut res = 0;
-    encoded.iter().enumerate().for_each(|(i, v)| {
-        if *v == bits {
-            res = i;
-        }
-    });
-    res as u8
+fn decode(encoded: [u8; 10]) -> impl FnMut(&&str) -> u8 {
+    return move |s| {
+        let bits = as_bits(s);
+        let mut res = 0;
+        encoded.iter().enumerate().for_each(|(i, v)| {
+            if *v == bits {
+                res = i;
+            }
+        });
+        res as u8
+    };
 }
 
 fn solve<'a>(puzzle: &Vec<DigitLine<'a>>) -> u64 {
@@ -71,7 +73,7 @@ fn solve<'a>(puzzle: &Vec<DigitLine<'a>>) -> u64 {
         let encoded = encode(&codes);
         num += digits
             .iter()
-            .map(|s| decode(s, encoded))
+            .map(decode(encoded))
             .fold(0, |n, d| (n * 10) + d as u64);
     }
     num
@@ -145,10 +147,7 @@ mod tests {
         let encoded = encode(&sample);
 
         assert_eq!(
-            sample
-                .iter()
-                .map(|s| decode(s, encoded))
-                .collect::<Vec<u8>>()[0..],
+            sample.iter().map(decode(encoded)).collect::<Vec<u8>>()[0..],
             [8, 5, 2, 3, 7, 9, 6, 4, 0, 1]
         );
     }
