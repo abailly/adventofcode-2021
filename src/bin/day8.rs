@@ -2,33 +2,89 @@ use std::env;
 use std::fs::read_to_string;
 use std::process;
 
-type DigitLine<'a> = (Vec<&'a str>, Vec<&'a str>);
+#[derive(Debug, PartialEq, Clone)]
+struct DigitLine<'a> {
+    codes: Vec<&'a str>,
+    digits: Vec<&'a str>,
+}
 
 fn is_simple(s: &str) -> bool {
     let ln = s.len();
     ln == 2 || ln == 3 || ln == 4 || ln == 7
 }
 
-fn solve<'a>(puzzle: &Vec<DigitLine<'a>>) -> i64 {
-    let mut num_basic = 0_i64;
-    for (_, ds) in puzzle {
-        num_basic += ds
-            .iter()
-            .filter(|s| {
-                println!("{}", s);
-                is_simple(s)
-            })
-            .collect::<Vec<&&str>>()
-            .len() as i64;
-    }
-    num_basic
+fn as_bits(s: &str) -> u8 {
+    s.chars()
+        .fold(0, |n, c| n + (1 << ((c as u8) - ('a' as u8))))
 }
 
-fn parse_digits<'a>(lines: &Vec<&'a str>) -> Option<Vec<(Vec<&'a str>, Vec<&'a str>)>> {
+fn encode(codes: &Vec<&str>) -> [u8; 10] {
+    let mut digits: [u8; 10] = [0; 10];
+    // first handle simple digits
+    codes.iter().filter(|s| is_simple(s)).for_each(|s| {
+        let bits = as_bits(s);
+        match s.len() {
+            2 => digits[1] = bits,
+            3 => digits[7] = bits,
+            4 => digits[4] = bits,
+            7 => digits[8] = bits,
+            _ => panic!("unknown encoding"),
+        }
+    });
+    codes.iter().filter(|s| s.len() == 6).for_each(|s| {
+        let bits = as_bits(s);
+        if bits & digits[4] == digits[4] {
+            digits[9] = bits;
+        } else if bits & digits[7] == digits[7] {
+            digits[0] = bits;
+        } else {
+            digits[6] = bits;
+        }
+    });
+    codes.iter().filter(|s| s.len() == 5).for_each(|s| {
+        let bits = as_bits(s);
+        if bits & digits[1] == digits[1] {
+            digits[3] = bits;
+        } else if bits & digits[6] == bits {
+            digits[5] = bits;
+        } else {
+            digits[2] = bits;
+        }
+    });
+    digits
+}
+
+fn decode(s: &str, encoded: [u8; 10]) -> u8 {
+    let bits = as_bits(s);
+    let mut res = 0;
+    encoded.iter().enumerate().for_each(|(i, v)| {
+        if *v == bits {
+            res = i;
+        }
+    });
+    res as u8
+}
+
+fn solve<'a>(puzzle: &Vec<DigitLine<'a>>) -> u64 {
+    let mut num = 0_u64;
+    for DigitLine { codes, digits } in puzzle {
+        let encoded = encode(&codes);
+        num += digits
+            .iter()
+            .map(|s| decode(s, encoded))
+            .fold(0, |n, d| (n * 10) + d as u64);
+    }
+    num
+}
+
+fn parse_digits<'a>(lines: &Vec<&'a str>) -> Option<Vec<DigitLine<'a>>> {
     let mut res = vec![];
     for s in lines {
         let parts: Vec<&str> = s.split(" | ").collect();
-        res.push((parts[0].split(' ').collect(), parts[1].split(' ').collect()));
+        res.push(DigitLine {
+            codes: parts[0].split(' ').collect(),
+            digits: parts[1].split(' ').collect(),
+        });
     }
     Some(res)
 }
@@ -62,16 +118,38 @@ mod tests {
             println!("{:?}", res);
             assert_eq!(
                 res[0],
-                (
-                    vec![
+                DigitLine {
+                    codes: vec![
                         "be", "cfbegad", "cbdgef", "fgaecd", "cgeb", "fdcge", "agebfd", "fecdb",
                         "fabcd", "edb"
                     ],
-                    vec!["fdgacbe", "cefdb", "cefbgd", "gcbe"]
-                )
+                    digits: vec!["fdgacbe", "cefdb", "cefbgd", "gcbe"]
+                }
             );
         } else {
             panic!("cannot parse input");
         }
+    }
+
+    #[test]
+    fn convert_to_bits_field() {
+        assert_eq!(as_bits("acd"), 13);
+    }
+
+    #[test]
+    fn define_encoding() {
+        let sample = vec![
+            "acedgfb", "cdfbe", "gcdfa", "fbcad", "dab", "cefabd", "cdfgeb", "eafb", "cagedb", "ab",
+        ];
+
+        let encoded = encode(&sample);
+
+        assert_eq!(
+            sample
+                .iter()
+                .map(|s| decode(s, encoded))
+                .collect::<Vec<u8>>()[0..],
+            [8, 5, 2, 3, 7, 9, 6, 4, 0, 1]
+        );
     }
 }
