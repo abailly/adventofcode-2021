@@ -42,6 +42,6 @@ mod tests {
     fn test_solve_sample() {
         let sample = vec![16, 1, 2, 0, 4, 2, 7, 1, 2, 14];
 
-        assert_eq!(solve(&sample), 37);
+        assert_eq!(solve(&sample), 168);
     }
 }

@@ -1,6 +1,4 @@
 use aoc2021::bingo::{parse, play, sum_undrawn};
-use core::fmt::Error;
-use std::cmp::Ordering;
 use std::env;
 use std::process;
 
