@@ -1,3 +1,4 @@
+use num::Bounded;
 use num::FromPrimitive;
 use num::Num;
 use std::cmp::max;
@@ -35,4 +36,36 @@ pub fn neighbours<T>(nums: &Vec<Vec<T>>, pos: (usize, usize)) -> Vec<(usize, usi
         res.push((i, (j + 1)));
     }
     res
+}
+
+/// Given a matrix of numbers, return the same matrix but with the neighbouring values.
+pub fn transform<N: Num + Ord + Bounded + Copy>(input: Vec<Vec<N>>) -> Vec<Vec<(N, N, N, N, N)>> {
+    let mut output = vec![];
+    for (j, row) in input.iter().enumerate() {
+        let mut new_row = vec![];
+        for (i, v) in row.iter().enumerate() {
+            let mut t = (
+                *v,
+                N::max_value(),
+                N::max_value(),
+                N::max_value(),
+                N::max_value(),
+            );
+            if i > 0 {
+                t.1 = input[j][i - 1];
+            }
+            if i < row.len() - 1 {
+                t.2 = input[j][i + 1];
+            }
+            if j > 0 {
+                t.3 = input[j - 1][i];
+            }
+            if j < input.len() - 1 {
+                t.4 = input[j + 1][i];
+            }
+            new_row.push(t);
+        }
+        output.push(new_row);
+    }
+    output
 }

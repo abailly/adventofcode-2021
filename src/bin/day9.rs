@@ -1,4 +1,5 @@
 use aoc2021::nums::neighbours;
+use aoc2021::nums::transform;
 use std::env;
 use std::fs::read_to_string;
 use std::process;
@@ -66,31 +67,6 @@ fn solve(nums: &Vec<Vec<(u8, u8, u8, u8, u8)>>) -> u64 {
     let mut res = find_basins(&nums, &find_low_points(&nums));
     res.sort_by(|a, b| b.partial_cmp(a).unwrap());
     res[0..3].iter().fold(1, |n, b| n * b)
-}
-
-fn transform(input: Vec<Vec<u8>>) -> Vec<Vec<(u8, u8, u8, u8, u8)>> {
-    let mut output = vec![];
-    for (j, row) in input.iter().enumerate() {
-        let mut new_row = vec![];
-        for (i, v) in row.iter().enumerate() {
-            let mut t = (*v, 10, 10, 10, 10);
-            if i > 0 {
-                t.1 = input[j][i - 1];
-            }
-            if i < row.len() - 1 {
-                t.2 = input[j][i + 1];
-            }
-            if j > 0 {
-                t.3 = input[j - 1][i];
-            }
-            if j < input.len() - 1 {
-                t.4 = input[j + 1][i];
-            }
-            new_row.push(t);
-        }
-        output.push(new_row);
-    }
-    output
 }
 
 fn main() {
