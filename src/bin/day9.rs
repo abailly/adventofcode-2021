@@ -1,3 +1,4 @@
+use aoc2021::nums::neighbours;
 use std::env;
 use std::fs::read_to_string;
 use std::process;
@@ -16,46 +17,24 @@ fn is_low_point(x: &u8, a: &u8, b: &u8, c: &u8, d: &u8) -> bool {
     x < a && x < b && x < c && x < d
 }
 
-fn neighbours(nums: &Vec<Vec<(u8, u8, u8, u8, u8)>>, pos: (usize, usize)) -> Vec<(usize, usize)> {
-    let mut res = vec![];
-    let (i, j) = pos;
-    if i > 0 {
-        res.push((i - 1, j));
-    }
-    if i < nums[0].len() - 1 {
-        res.push((i + 1, j));
-    }
-    if j > 0 {
-        res.push((i, (j - 1)));
-    }
-    if j < nums.len() - 1 {
-        res.push((i, (j + 1)));
-    }
-    res
-}
-
 fn find_basins(
     nums: &Vec<Vec<(u8, u8, u8, u8, u8)>>,
     low_points: &Vec<(usize, usize)>,
 ) -> Vec<u64> {
     let mut res = vec![];
-    println!("low {:?}", low_points);
     for (i, j) in low_points {
         let mut basin = vec![];
         let mut visited = vec![];
         let mut cur_neighbours = vec![(*i, *j)];
-        println!("cur low {:?} neighbours {:?}", (i, j), cur_neighbours);
         while !cur_neighbours.is_empty() {
             if let Some(cur) = cur_neighbours.pop() {
                 let cur_neigh = neighbours(nums, cur);
-                println!("cur {:?}, neigbours {:?}", cur, cur_neigh);
                 for (x, y) in cur_neigh {
                     if nums[y][x].0 != 9
                         && !visited.contains(&(x, y))
                         && !basin.contains(&(x, y))
                         && !cur_neighbours.contains(&(x, y))
                     {
-                        println!("adding {:?}", (x, y));
                         cur_neighbours.push((x, y));
                     }
                 }
@@ -66,7 +45,6 @@ fn find_basins(
             }
         }
         res.push(basin.len() as u64);
-        println!("pushing {:?} into res {:?}", basin, res);
     }
 
     res
@@ -87,7 +65,6 @@ fn find_low_points(nums: &Vec<Vec<(u8, u8, u8, u8, u8)>>) -> Vec<(usize, usize)>
 fn solve(nums: &Vec<Vec<(u8, u8, u8, u8, u8)>>) -> u64 {
     let mut res = find_basins(&nums, &find_low_points(&nums));
     res.sort_by(|a, b| b.partial_cmp(a).unwrap());
-    println!("{:?}", res);
     res[0..3].iter().fold(1, |n, b| n * b)
 }
 
