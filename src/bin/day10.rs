@@ -3,28 +3,49 @@ use std::fs::read_to_string;
 use std::process;
 
 fn points(r: &Result<(), ParseErr>) -> u64 {
-    if let Err(ParseErr::InvalidChar(c)) = r {
-        return match c {
-            ')' => 3,
-            ']' => 57,
-            '}' => 1197,
-            '>' => 25137,
-            _ => 0,
-        };
+    match r {
+        Err(ParseErr::InvalidChar(c)) => {
+            return match c {
+                ')' => 3,
+                ']' => 57,
+                '}' => 1197,
+                '>' => 25137,
+                _ => 0,
+            }
+        }
+        Err(ParseErr::EOL(stack)) => {
+            return stack.iter().rev().fold(0, |n, c| {
+                let val = match c {
+                    '(' => 1,
+                    '[' => 2,
+                    '{' => 3,
+                    '<' => 4,
+                    _ => 0,
+                };
+                5 * n + val
+            })
+        }
+        Ok(_) => 0,
     }
-    0
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone)]
 enum ParseErr {
     InvalidChar(char),
-    EOL,
+    EOL(Vec<char>),
 }
 
 fn is_not_eol(res: &Result<(), ParseErr>) -> bool {
     match res {
-        Err(ParseErr::EOL) => false,
+        Err(ParseErr::EOL(_)) => false,
         _ => true,
+    }
+}
+
+fn is_eol(res: &Result<(), ParseErr>) -> bool {
+    match res {
+        Err(ParseErr::EOL(_)) => true,
+        _ => false,
     }
 }
 
@@ -43,7 +64,7 @@ fn parse_line(line: &str) -> Result<(), ParseErr> {
                         _ => return Err(ParseErr::InvalidChar(c)),
                     }
                 } else {
-                    return Err(ParseErr::EOL);
+                    return Err(ParseErr::EOL(stack));
                 }
             }
             ']' => {
@@ -53,7 +74,7 @@ fn parse_line(line: &str) -> Result<(), ParseErr> {
                         _ => return Err(ParseErr::InvalidChar(c)),
                     }
                 } else {
-                    return Err(ParseErr::EOL);
+                    return Err(ParseErr::EOL(stack));
                 }
             }
             '}' => {
@@ -63,7 +84,7 @@ fn parse_line(line: &str) -> Result<(), ParseErr> {
                         _ => return Err(ParseErr::InvalidChar(c)),
                     }
                 } else {
-                    return Err(ParseErr::EOL);
+                    return Err(ParseErr::EOL(stack));
                 }
             }
             '>' => {
@@ -73,14 +94,17 @@ fn parse_line(line: &str) -> Result<(), ParseErr> {
                         _ => return Err(ParseErr::InvalidChar(c)),
                     }
                 } else {
-                    return Err(ParseErr::EOL);
+                    return Err(ParseErr::EOL(stack));
                 }
             }
             _ => return Err(ParseErr::InvalidChar(c)),
         };
     }
-
-    Ok(())
+    if stack.is_empty() {
+        Ok(())
+    } else {
+        Err(ParseErr::EOL(stack))
+    }
 }
 
 fn main() {
@@ -95,10 +119,11 @@ fn main() {
             .split("\n")
             .filter(|s| !s.is_empty())
             .map(|s| parse_line(s))
-            .filter(is_not_eol)
+            .filter(is_eol)
             .partition(Result::is_ok);
-        println!("{:?}", errs);
-        println!("{}", errs.iter().fold(0, |n, e| points(e) + n));
+        let mut res = errs.iter().map(points).collect::<Vec<u64>>();
+        res.sort();
+        println!("{:?}", res[(res.len() / 2)]);
     } else {
         println!("fail to parse {}", args[1]);
     }
