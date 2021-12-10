@@ -29,6 +29,7 @@ fn find_basins(
         let mut cur_neighbours = vec![(*i, *j)];
         while !cur_neighbours.is_empty() {
             if let Some(cur) = cur_neighbours.pop() {
+                let (x1, y1) = cur;
                 let cur_neigh = neighbours(nums, cur);
                 for (x, y) in cur_neigh {
                     if nums[y][x].0 != 9
@@ -39,7 +40,7 @@ fn find_basins(
                         cur_neighbours.push((x, y));
                     }
                 }
-                if nums[cur.1][cur.0].0 != 9 {
+                if nums[y1][x1].0 != 9 {
                     basin.push(cur);
                 }
                 visited.push(cur);
