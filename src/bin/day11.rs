@@ -74,13 +74,14 @@ fn count_zero(octopuses: &Vec<Vec<u8>>) -> u64 {
 }
 
 fn solve(nums: &Vec<Vec<u8>>) -> u64 {
-    let mut flashes = 0;
     let mut octopuses = nums.clone();
-    for _ in 0..100 {
+    for i in 1.. {
         step(&mut octopuses);
-        flashes += count_zero(&octopuses);
+        if count_zero(&octopuses) == 100 {
+            return i;
+        }
     }
-    flashes
+    0
 }
 
 fn main() {
