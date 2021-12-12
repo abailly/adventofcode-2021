@@ -27,8 +27,28 @@ fn parse_edges<'a>(lines: &Vec<&'a str>) -> Option<HashMap<&'a str, Vec<&'a str>
     Some(res)
 }
 
-fn solve(_caves: &HashMap<&str, Vec<&str>>) -> u64 {
-    0
+fn solve(caves: &HashMap<&str, Vec<&str>>) -> usize {
+    let mut res = vec![];
+    let mut to_explore = vec![vec!["start"]];
+    while !to_explore.is_empty() {
+        if let Some(path) = to_explore.pop() {
+            let head = path[path.len() - 1];
+            if head == "end" {
+                res.push(path);
+            } else {
+                if let Some(cs) = caves.get(head) {
+                    for c in cs {
+                        if c.chars().nth(0).unwrap().is_ascii_uppercase() || !path.contains(c) {
+                            let mut new_path = path.clone();
+                            new_path.push(c);
+                            to_explore.push(new_path);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    res.len()
 }
 
 fn main() {
@@ -60,5 +80,38 @@ mod tests {
 
         let res = vec!["start", "c", "b", "end"];
         assert_eq!(g.get("A"), Some(&res));
+    }
+
+    #[test]
+    fn can_compute_number_of_paths_on_sample() {
+        let lines = vec!["start-A", "start-b", "A-c", "A-b", "b-d", "A-end", "b-end"];
+
+        let g = parse_edges(&lines).unwrap();
+
+        assert_eq!(solve(&g), 10);
+    }
+
+    #[test]
+    fn can_compute_number_of_paths_on_larger_sample() {
+        let lines = vec![
+            "dc-end", "HN-start", "start-kj", "dc-start", "dc-HN", "LN-dc", "HN-end", "kj-sa",
+            "kj-HN", "kj-dc",
+        ];
+
+        let g = parse_edges(&lines).unwrap();
+
+        assert_eq!(solve(&g), 19);
+    }
+
+    #[test]
+    fn can_compute_number_of_paths_on_an_even_larger_sample() {
+        let lines = vec![
+            "fs-end", "he-DX", "fs-he", "start-DX", "pj-DX", "end-zg", "zg-sl", "zg-pj", "pj-he",
+            "RW-he", "fs-DX", "pj-RW", "zg-RW", "start-pj", "he-WI", "zg-he", "pj-fs", "start-RW",
+        ];
+
+        let g = parse_edges(&lines).unwrap();
+
+        assert_eq!(solve(&g), 226);
     }
 }
