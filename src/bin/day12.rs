@@ -1,6 +1,8 @@
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::env;
 use std::fs::read_to_string;
+use std::iter::FromIterator;
 use std::process;
 
 fn parse_edges<'a>(lines: &Vec<&'a str>) -> Option<HashMap<&'a str, Vec<&'a str>>> {
@@ -27,6 +29,23 @@ fn parse_edges<'a>(lines: &Vec<&'a str>) -> Option<HashMap<&'a str, Vec<&'a str>
     Some(res)
 }
 
+fn has_at_most_one_lowercase(path: &Vec<&str>) -> bool {
+    let lc: Vec<&&str> = path
+        .iter()
+        .filter(|s| s.chars().nth(0).unwrap().is_ascii_lowercase())
+        .collect();
+
+    let hc: HashSet<_> = HashSet::from_iter(lc.iter().cloned());
+    lc.len() == hc.len()
+}
+
+fn can_extend_path_with(path: &Vec<&str>, c: &str) -> bool {
+    (c.chars().nth(0).unwrap().is_ascii_uppercase()
+        || !path.contains(&c)
+        || has_at_most_one_lowercase(path))
+        && c != "start"
+}
+
 fn solve(caves: &HashMap<&str, Vec<&str>>) -> usize {
     let mut res = vec![];
     let mut to_explore = vec![vec!["start"]];
@@ -38,7 +57,7 @@ fn solve(caves: &HashMap<&str, Vec<&str>>) -> usize {
             } else {
                 if let Some(cs) = caves.get(head) {
                     for c in cs {
-                        if c.chars().nth(0).unwrap().is_ascii_uppercase() || !path.contains(c) {
+                        if can_extend_path_with(&path, c) {
                             let mut new_path = path.clone();
                             new_path.push(c);
                             to_explore.push(new_path);
