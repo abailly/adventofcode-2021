@@ -4,61 +4,71 @@ use nom::bytes::complete::tag;
 use nom::character::complete::anychar;
 use nom::sequence::tuple;
 use std::collections::HashMap;
-use std::collections::HashSet;
-use std::convert::TryInto;
 use std::env;
 use std::fs::read_to_string;
-use std::iter::FromIterator;
+use std::hash::Hash;
 use std::process;
 
 type Insertion = HashMap<(char, char), char>;
 
-fn solve(instructions: &(String, Insertion), steps: u8) -> String {
-    let mut res = instructions.0.clone();
-    for _ in 0..steps {
-        let pairs: Vec<(char, char)> = res.chars().zip(res[1..].chars()).collect();
-
-        let mut new_res = String::new();
-        for (x, y) in pairs {
-            new_res.pop();
-            match &instructions.1.get(&(x, y)) {
-                Some(c) => {
-                    new_res.push(x);
-                    new_res.push(**c);
-                    new_res.push(y);
-                }
-                None => (),
-            }
+fn update<K: Eq + Hash>(map: &mut HashMap<K, u64>, p: K, k: u64) {
+    match map.get_mut(&p) {
+        Some(n) => *n += k,
+        None => {
+            map.insert(p, k);
+            ()
         }
-        res = new_res;
     }
-
-    res.to_string()
 }
 
-fn compute_number(result: &String) -> u64 {
-    let mut chars_count: HashMap<char, u64> = HashMap::new();
-    for c in result.chars() {
-        match chars_count.get_mut(&c) {
-            Some(n) => *n += 1,
-            None => {
-                chars_count.insert(c, 1);
-                ()
+fn solve(instructions: &(String, Insertion), steps: u8) -> HashMap<(char, char), u64> {
+    let input = &instructions.0;
+    let pairs = &instructions.1;
+
+    let mut res: HashMap<(char, char), u64> = HashMap::new();
+
+    input
+        .chars()
+        .zip(input[1..].chars())
+        .for_each(|p| update(&mut res, p, 1));
+
+    for _ in 0..steps {
+        let mut new_res = HashMap::new();
+        res.iter().for_each(|(p, v)| {
+            if *v > 0 {
+                if let Some(c) = pairs.get(p) {
+                    update(&mut new_res, (p.0, *c), *v);
+                    update(&mut new_res, (*c, p.1), *v);
+                } else {
+                    new_res.insert(*p, *v);
+                }
             }
-        }
+        });
+
+        res = new_res.clone();
+    }
+
+    res
+}
+
+fn compute_number(result: &HashMap<(char, char), u64>) -> u64 {
+    let mut chars_count: HashMap<char, u64> = HashMap::new();
+    for (p, v) in result.iter() {
+        update(&mut chars_count, p.0, *v);
+        update(&mut chars_count, p.1, *v);
     }
 
     let (mut max, mut min) = (0, MAX);
-    chars_count.iter().for_each(|(_, v)| {
-        if *v > max {
-            max = *v;
+    chars_count.iter().map(|(_, v)| v / 2).for_each(|v| {
+        if v > max {
+            max = v;
         }
-        if *v < min {
-            min = *v;
+        if v < min {
+            min = v;
         }
     });
 
-    max - min
+    max - min + 1
 }
 
 fn parse_instructions(lines: &Vec<&str>) -> (String, Insertion) {
