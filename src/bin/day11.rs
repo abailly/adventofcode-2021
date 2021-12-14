@@ -1,8 +1,9 @@
 use aoc2021::nums::all_neighbours;
-use aoc2021::nums::neighbours;
 use std::env;
 use std::fs::read_to_string;
 use std::process;
+use std::thread::sleep;
+use std::time::Duration;
 
 fn parse_digits(lines: &Vec<&str>) -> Option<Vec<Vec<u8>>> {
     let mut output = vec![];
@@ -73,10 +74,27 @@ fn count_zero(octopuses: &Vec<Vec<u8>>) -> u64 {
     })
 }
 
+fn color_of(cell: &u8) -> u8 {
+    16 + 20 * cell
+}
+
+fn print_octopuses(nums: &Vec<Vec<u8>>) {
+    for row in nums {
+        for cell in row {
+            let color = color_of(cell);
+            print!("\x1b[48;5;{}m \x1b[0m", color);
+        }
+        println!("");
+    }
+}
+
 fn solve(nums: &Vec<Vec<u8>>) -> u64 {
     let mut octopuses = nums.clone();
     for i in 1.. {
         step(&mut octopuses);
+        print!("\x1b[2J");
+        sleep(Duration::from_millis(300));
+        print_octopuses(&octopuses);
         if count_zero(&octopuses) == 100 {
             return i;
         }

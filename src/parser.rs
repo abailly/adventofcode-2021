@@ -14,7 +14,7 @@ use nom::IResult;
 use std::fs::read_to_string;
 
 // Wow. that's a type....
-type E<'a> = Err<Error<&'a str>>;
+pub type E<'a> = Err<Error<&'a str>>;
 
 /// Possible moves
 #[derive(Debug, Clone, PartialEq, Copy)]
