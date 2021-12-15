@@ -13,10 +13,10 @@ use std::fs::read_to_string;
 
 type E<'a> = Err<Error<&'a str>>;
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct Pos {
-    x: usize,
-    y: usize,
+    pub x: usize,
+    pub y: usize,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]

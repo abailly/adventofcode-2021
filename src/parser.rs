@@ -84,11 +84,12 @@ pub fn parse_csv(input: &Vec<&str>) -> Option<Vec<i64>> {
 }
 
 /// Parse a matrix of single-digit numbers
-pub fn parse_digits(lines: &Vec<&str>) -> Option<Vec<Vec<u8>>> {
+pub fn parse_digits(lines: &Vec<&str>) -> Option<Vec<Vec<u64>>> {
     let mut output = vec![];
     for line in lines {
         let mut row = vec![];
-        line.chars().for_each(|c| row.push((c as u8) - ('0' as u8)));
+        line.chars()
+            .for_each(|c| row.push((c as u64) - ('0' as u64)));
         output.push(row);
     }
     Some(output)
