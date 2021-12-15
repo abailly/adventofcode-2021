@@ -15,11 +15,12 @@ fn color_of(cell: &u8) -> u8 {
     16 + 20 * cell
 }
 
-fn print_path(nums: &Vec<Vec<u8>>) {
+fn print_path(nums: &Vec<Vec<u64>>) {
     for row in nums {
         for cell in row {
-            let color = color_of(cell);
-            print!("\x1b[48;5;{}m \x1b[0m", color);
+            // let color = color_of(&(*cell as u8));
+            // print!("\x1b[48;5;{}m \x1b[0m", color);
+            print!("{}", cell);
         }
         println!("");
     }
@@ -82,7 +83,6 @@ fn solve(nums: &Vec<Vec<u64>>) -> u64 {
             return cost;
         }
 
-        println!("current {} {:?}", cost, position);
         // Important as we may have already found a better way
         if cost > distances[position.y][position.x] {
             continue;
@@ -112,6 +112,27 @@ fn solve(nums: &Vec<Vec<u64>>) -> u64 {
     MAX
 }
 
+fn expand(nums: &Vec<Vec<u64>>) -> Vec<Vec<u64>> {
+    let leny = nums.len();
+    let lenx = nums[0].len();
+    let mut new_nums: Vec<Vec<u64>> = Vec::with_capacity(leny * 5);
+    new_nums.resize(leny * 5, vec![]);
+    for j in 0..(leny * 5) {
+        let mut new_row = Vec::with_capacity(lenx * 5);
+        new_row.resize(lenx * 5, 0);
+        for i in 0..(lenx * 5) {
+            let mut val = nums[j % leny][i % lenx] + (i / lenx) as u64 + (j / leny) as u64;
+            if val > 9 {
+                val = val - 9;
+            }
+            new_row[i] = val;
+        }
+        new_nums[j] = new_row;
+    }
+
+    new_nums
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
@@ -121,7 +142,8 @@ fn main() {
 
     if let Ok(input) = read_to_string(&args[1]) {
         if let Some(puzzle) = parse_digits(&input.split("\n").filter(|s| !s.is_empty()).collect()) {
-            let solution = solve(&puzzle);
+            let real_cave = expand(&puzzle);
+            let solution = solve(&real_cave);
             println!("{}", solution);
         }
     } else {
@@ -151,5 +173,27 @@ mod tests {
         let res = solve(&sample);
 
         assert_eq!(res, 40);
+    }
+
+    #[test]
+    fn run_finds_shortest_path_on_full_cave() {
+        let sample: Vec<Vec<u64>> = vec![
+            vec![1, 1, 6, 3, 7, 5, 1, 7, 4, 2],
+            vec![1, 3, 8, 1, 3, 7, 3, 6, 7, 2],
+            vec![2, 1, 3, 6, 5, 1, 1, 3, 2, 8],
+            vec![3, 6, 9, 4, 9, 3, 1, 5, 6, 9],
+            vec![7, 4, 6, 3, 4, 1, 7, 1, 1, 1],
+            vec![1, 3, 1, 9, 1, 2, 8, 1, 3, 7],
+            vec![1, 3, 5, 9, 9, 1, 2, 4, 2, 1],
+            vec![3, 1, 2, 5, 4, 2, 1, 6, 3, 9],
+            vec![1, 2, 9, 3, 1, 3, 8, 5, 2, 1],
+            vec![2, 3, 1, 1, 9, 4, 4, 5, 8, 1],
+        ];
+
+        let real_cave = expand(&sample);
+        print_path(&real_cave);
+        let res = solve(&real_cave);
+
+        assert_eq!(res, 315);
     }
 }
