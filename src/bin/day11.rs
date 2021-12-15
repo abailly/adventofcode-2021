@@ -1,19 +1,10 @@
 use aoc2021::nums::all_neighbours;
+use aoc2021::parser::parse_digits;
 use std::env;
 use std::fs::read_to_string;
 use std::process;
 use std::thread::sleep;
 use std::time::Duration;
-
-fn parse_digits(lines: &Vec<&str>) -> Option<Vec<Vec<u8>>> {
-    let mut output = vec![];
-    for line in lines {
-        let mut row = vec![];
-        line.chars().for_each(|c| row.push((c as u8) - ('0' as u8)));
-        output.push(row);
-    }
-    Some(output)
-}
 
 fn flashers(octopuses: &Vec<Vec<u8>>) -> Vec<(usize, usize)> {
     let mut flashers = vec![];

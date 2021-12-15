@@ -83,6 +83,17 @@ pub fn parse_csv(input: &Vec<&str>) -> Option<Vec<i64>> {
     }
 }
 
+/// Parse a matrix of single-digit numbers
+pub fn parse_digits(lines: &Vec<&str>) -> Option<Vec<Vec<u8>>> {
+    let mut output = vec![];
+    for line in lines {
+        let mut row = vec![];
+        line.chars().for_each(|c| row.push((c as u8) - ('0' as u8)));
+        output.push(row);
+    }
+    Some(output)
+}
+
 /// Parse a file into a string and call given parser on this string
 pub fn parse_file<R>(file: &str, parser: fn(&Vec<&str>) -> Option<R>) -> Option<R> {
     if let Ok(input) = read_to_string(file) {

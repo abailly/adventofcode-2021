@@ -108,7 +108,7 @@ mod tests {
 
     #[test]
     fn compute_all_neighbours() {
-        let mut sample: Vec<Vec<u8>> = vec![
+        let sample: Vec<Vec<u8>> = vec![
             vec![5, 4, 8, 3, 1, 4, 3, 2, 2, 3],
             vec![2, 7, 4, 5, 8, 5, 4, 7, 1, 1],
             vec![5, 2, 6, 4, 5, 5, 6, 1, 7, 3],
