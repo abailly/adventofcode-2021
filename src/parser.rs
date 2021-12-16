@@ -15,6 +15,7 @@ use std::fs::read_to_string;
 
 // Wow. that's a type....
 pub type E<'a> = Err<Error<&'a str>>;
+pub type Ebits<'a> = Err<Error<&'a [u8]>>;
 
 /// Possible moves
 #[derive(Debug, Clone, PartialEq, Copy)]
