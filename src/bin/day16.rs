@@ -52,6 +52,23 @@ fn parse_value(input: (&[u8], usize)) -> IResult<(&[u8], usize), Packet> {
     value(input)
 }
 
+fn parse_operator(input: (&[u8], usize)) -> IResult<(&[u8], usize), Packet> {
+    let sub_packets0 = tuple((tag(0x0, 1usize), take(15usize))).flat_map(|(_,len)| ;
+    let res = match sub_packets0(input) {
+        Ok(((more, _), (_, len))) => parse_packet(more),
+        Err(e) => Err(e),
+    };
+
+    let mut value = map(
+        tuple((take(3usize), take(3usize), sub_packets0)),
+        |(v, _, _pks)| Packet {
+            version: v,
+            content: Content::Operator(vec![]),
+        },
+    );
+    value(input)
+}
+
 pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
     (0..s.len())
         .step_by(2)
@@ -59,9 +76,13 @@ pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
         .collect()
 }
 
+fn parse_packet(input: &[u8]) -> IResult<&[u8], Packet> {
+    bits(alt((parse_value, parse_operator)))(input)
+}
+
 fn parse_packets(input: &str) -> Option<Packet> {
     let bytes = &decode_hex(input).unwrap()[0..];
-    let res: Result<_, Ebits> = bits(parse_value)(&bytes);
+    let res: Result<_, Ebits> = parse_packet(&bytes);
     match res {
         Ok((_, p)) => Some(p),
         Err(_) => None,
@@ -108,6 +129,29 @@ mod tests {
             Some(Packet {
                 version: 6,
                 content: Content::Value(2021)
+            })
+        );
+    }
+    #[test]
+    fn can_parse_operator_packet_with_len_0() {
+        let input = "38006F45291200";
+
+        let res = parse_packets(&input);
+
+        assert_eq!(
+            res,
+            Some(Packet {
+                version: 6,
+                content: Content::Operator(vec![
+                    Packet {
+                        version: 6,
+                        content: Content::Value(10)
+                    },
+                    Packet {
+                        version: 2,
+                        content: Content::Value(20)
+                    }
+                ])
             })
         );
     }
