@@ -5,6 +5,7 @@ use nom::bits;
 use nom::branch::alt;
 use nom::combinator::map;
 use nom::multi::many0;
+use nom::multi::many1;
 use nom::sequence::tuple;
 use nom::IResult;
 use nom::Parser;
@@ -16,7 +17,7 @@ use std::process;
 #[derive(Debug, PartialEq, Eq, Clone)]
 enum Content {
     Value(u64),
-    Operator(Vec<Packet>),
+    Operator(u8, Vec<Packet>),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -44,29 +45,35 @@ fn parse_value(input: (&[u8], usize)) -> IResult<(&[u8], usize), Packet> {
     let val_bits = tuple((many0(val_fragment), val_term));
     let mut value = map(
         tuple((take(3usize), tag(0x04, 3usize), val_bits)),
-        |(v, _, bts)| Packet {
-            version: v,
-            content: Content::Value(convert(bts)),
+        |(v, _, bts)| {
+            println!("{:?}", v);
+            Packet {
+                version: v,
+                content: Content::Value(convert(bts)),
+            }
         },
     );
     value(input)
 }
 
 fn parse_operator(input: (&[u8], usize)) -> IResult<(&[u8], usize), Packet> {
-    let sub_packets0 = tuple((tag(0x0, 1usize), take(15usize))).flat_map(|(_,len)| ;
-    let res = match sub_packets0(input) {
-        Ok(((more, _), (_, len))) => parse_packet(more),
+    let mut op_prefix = tuple((take(3usize), take(3usize), tag(0x0, 1usize), take(15usize)));
+    match op_prefix(input) {
+        Ok(((bytes, l), (v, t, _, len))) => {
+            println!("{:?} {} ", bytes, l);
+            many1(parse_packet)((bytes, l)).map(|(bs, pkts)| {
+                println!("{:?}", bs);
+                (
+                    bs,
+                    Packet {
+                        version: v,
+                        content: Content::Operator(t, pkts),
+                    },
+                )
+            })
+        }
         Err(e) => Err(e),
-    };
-
-    let mut value = map(
-        tuple((take(3usize), take(3usize), sub_packets0)),
-        |(v, _, _pks)| Packet {
-            version: v,
-            content: Content::Operator(vec![]),
-        },
-    );
-    value(input)
+    }
 }
 
 pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
@@ -76,13 +83,13 @@ pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
         .collect()
 }
 
-fn parse_packet(input: &[u8]) -> IResult<&[u8], Packet> {
-    bits(alt((parse_value, parse_operator)))(input)
+fn parse_packet(input: (&[u8], usize)) -> IResult<(&[u8], usize), Packet> {
+    alt((parse_value, parse_operator))(input)
 }
 
 fn parse_packets(input: &str) -> Option<Packet> {
     let bytes = &decode_hex(input).unwrap()[0..];
-    let res: Result<_, Ebits> = parse_packet(&bytes);
+    let res: Result<_, Ebits> = bits(parse_packet)(&bytes);
     match res {
         Ok((_, p)) => Some(p),
         Err(_) => None,
@@ -93,7 +100,7 @@ fn versions(packet: &Packet) -> u64 {
     packet.version as u64
         + match &packet.content {
             Content::Value(_) => 0,
-            Content::Operator(packets) => packets.iter().fold(0, |n, p| n + versions(p)),
+            Content::Operator(_, packets) => packets.iter().fold(0, |n, p| n + versions(p)),
         }
 }
 
@@ -142,16 +149,19 @@ mod tests {
             res,
             Some(Packet {
                 version: 6,
-                content: Content::Operator(vec![
-                    Packet {
-                        version: 6,
-                        content: Content::Value(10)
-                    },
-                    Packet {
-                        version: 2,
-                        content: Content::Value(20)
-                    }
-                ])
+                content: Content::Operator(
+                    2,
+                    vec![
+                        Packet {
+                            version: 6,
+                            content: Content::Value(10)
+                        },
+                        Packet {
+                            version: 2,
+                            content: Content::Value(20)
+                        }
+                    ]
+                )
             })
         );
     }
