@@ -1,21 +1,17 @@
-use aoc2021::nums::all_neighbours;
-use aoc2021::nums::neighbours;
-use aoc2021::parser::parse_digits;
+use crate::bits::complete::tag;
+use crate::bits::complete::take;
 use aoc2021::parser::Ebits;
-use aoc2021::parser::E;
-use aoc2021::vents::Pos;
-use core::u64::MAX;
 use nom::bits;
 use nom::branch::alt;
+use nom::combinator::map;
+use nom::multi::many0;
+use nom::sequence::tuple;
 use nom::IResult;
-use std::cmp::Ordering;
-use std::collections::BinaryHeap;
+use nom::Parser;
 use std::env;
 use std::fs::read_to_string;
 use std::num::ParseIntError;
 use std::process;
-use std::thread::sleep;
-use std::time::Duration;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 enum Content {
@@ -29,14 +25,31 @@ struct Packet {
     content: Content,
 }
 
+fn convert(vals: (Vec<u8>, u8)) -> u64 {
+    let mut res = 0_u64;
+    println!("{:?}", vals);
+    for x in vals.0 {
+        res *= 16;
+        res += x as u64;
+        println!("{}", res);
+    }
+    res *= 16;
+    res += vals.1 as u64;
+    res
+}
+
 fn parse_value(input: (&[u8], usize)) -> IResult<(&[u8], usize), Packet> {
-    Ok((
-        input,
-        Packet {
-            version: 3,
-            content: Content::Value(1),
+    let val_fragment = tuple((tag(0x01, 1usize), take(4usize))).map(|(_, n)| n);
+    let val_term = tuple((tag(0x0, 1usize), take(4usize))).map(|(_, n)| n);
+    let val_bits = tuple((many0(val_fragment), val_term));
+    let mut value = map(
+        tuple((take(3usize), tag(0x04, 3usize), val_bits)),
+        |(v, _, bts)| Packet {
+            version: v,
+            content: Content::Value(convert(bts)),
         },
-    ))
+    );
+    value(input)
 }
 
 pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
