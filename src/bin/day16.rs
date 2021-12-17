@@ -1,11 +1,11 @@
 use crate::bits::complete::tag;
 use crate::bits::complete::take;
 use aoc2021::parser::Ebits;
+use hex;
 use nom::bits;
 use nom::branch::alt;
 use nom::combinator::map;
 use nom::multi::many0;
-use nom::multi::many1;
 use nom::sequence::tuple;
 use nom::IResult;
 use nom::Parser;
@@ -57,23 +57,14 @@ fn parse_operator_0(input: (&[u8], usize)) -> IResult<(&[u8], usize), Packet> {
         Ok(((bytes, off), (version, t, _, len))) => {
             let remaining = bytes.len() * 8 - off;
             let mut consumed = 0;
-            println!(
-                "bytes: {:?} offset: {} len: {} remaining: {} ",
-                bytes, off, len, remaining
-            );
             let mut pkts = vec![];
             let mut inp = (bytes, off);
             while consumed < len {
                 match parse_packet(inp) {
                     Ok(((nbytes, noff), p)) => {
                         pkts.push(p);
-                        println!("bytes: {:?} offset: {} ", nbytes, noff);
                         consumed = consumed + (remaining - (nbytes.len() * 8 - noff));
                         inp = (nbytes, noff);
-                        println!(
-                            "bytes: {:?} offset: {} len: {} consumed: {} ",
-                            nbytes, noff, len, consumed
-                        );
                     }
                     Err(e) => return Err(e),
                 }
@@ -107,8 +98,9 @@ fn parse_operator_1(input: (&[u8], usize)) -> IResult<(&[u8], usize), Packet> {
                     Err(e) => return Err(e),
                 }
             }
+            println!("check len {}", pkts.len() == len);
             Ok((
-                inp,
+                stream,
                 Packet {
                     version,
                     content: Content::Operator(t, pkts),
@@ -119,22 +111,23 @@ fn parse_operator_1(input: (&[u8], usize)) -> IResult<(&[u8], usize), Packet> {
     }
 }
 
-pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
-    (0..s.len())
-        .step_by(2)
-        .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
-        .collect()
+pub fn decode_hex(s: &str) -> Vec<u8> {
+    hex::decode(s).unwrap()
 }
 
 fn parse_packet(input: (&[u8], usize)) -> IResult<(&[u8], usize), Packet> {
-    alt((parse_value, parse_operator_0, parse_operator_1))(input)
+    println!("parsing {:?}", input);
+    alt((parse_value, parse_operator_1, parse_operator_0))(input)
 }
 
 fn parse_packets(input: &str) -> Option<Packet> {
-    let bytes = &decode_hex(input).unwrap()[0..];
+    let bytes = &decode_hex(input)[0..];
     let res: Result<_, Ebits> = bits(parse_packet)(&bytes);
     match res {
-        Ok((_, p)) => Some(p),
+        Ok((inp, p)) => {
+            println!("Success parsing, remaining {:?}", inp);
+            Some(p)
+        }
         Err(_) => None,
     }
 }
@@ -237,6 +230,65 @@ mod tests {
                     ]
                 )
             })
+        );
+    }
+
+    #[test]
+    fn can_compute_total_version() {
+        let other = "620080001611562C8802118E34";
+        let input = "A0016C880162017C3686B18A3D4780";
+
+        let pkt = parse_packets(&input).unwrap();
+
+        assert_eq!(versions(&parse_packets(&other).unwrap()), 12);
+        assert_eq!(
+            versions(&parse_packets("C0015000016115A2E0802F182340").unwrap()),
+            23
+        );
+        assert_eq!(versions(&parse_packets("8A004A801A8002F478").unwrap()), 16);
+        assert_eq!(versions(&pkt), 31);
+        assert_eq!(
+            pkt,
+            Packet {
+                version: 5,
+                content: Content::Operator(
+                    0,
+                    vec![Packet {
+                        version: 1,
+                        content: Content::Operator(
+                            0,
+                            vec![Packet {
+                                version: 3,
+                                content: Content::Operator(
+                                    0,
+                                    vec![
+                                        Packet {
+                                            version: 7,
+                                            content: Content::Value(6)
+                                        },
+                                        Packet {
+                                            version: 6,
+                                            content: Content::Value(6)
+                                        },
+                                        Packet {
+                                            version: 5,
+                                            content: Content::Value(12)
+                                        },
+                                        Packet {
+                                            version: 2,
+                                            content: Content::Value(15)
+                                        },
+                                        Packet {
+                                            version: 2,
+                                            content: Content::Value(15)
+                                        }
+                                    ]
+                                )
+                            }]
+                        )
+                    }]
+                )
+            }
         );
     }
 }
