@@ -59,18 +59,31 @@ fn parse_value(input: (&[u8], usize)) -> IResult<(&[u8], usize), Packet> {
 fn parse_operator(input: (&[u8], usize)) -> IResult<(&[u8], usize), Packet> {
     let mut op_prefix = tuple((take(3usize), take(3usize), tag(0x0, 1usize), take(15usize)));
     match op_prefix(input) {
-        Ok(((bytes, l), (v, t, _, len))) => {
-            println!("{:?} {} ", bytes, l);
-            many1(parse_packet)((bytes, l)).map(|(bs, pkts)| {
-                println!("{:?}", bs);
-                (
-                    bs,
-                    Packet {
-                        version: v,
-                        content: Content::Operator(t, pkts),
-                    },
-                )
-            })
+        Ok(((bytes, off), (version, t, _, len))) => {
+            let mut remaining = bytes.len() * 8 - off;
+            println!(
+                "bytes: {:?} offset: {} len: {} remaining: {} ",
+                bytes, off, len, remaining
+            );
+            let mut pkts = vec![];
+            let mut inp = (bytes, off);
+            while remaining > len {
+                match parse_packet(inp) {
+                    Ok(((nbytes, noff), p)) => {
+                        pkts.push(p);
+                        remaining = nbytes.len() * 8 - noff;
+                        inp = (nbytes, noff);
+                    }
+                    Err(e) => return Err(e),
+                }
+            }
+            Ok((
+                inp,
+                Packet {
+                    version,
+                    content: Content::Operator(t, pkts),
+                },
+            ))
         }
         Err(e) => Err(e),
     }
