@@ -79,7 +79,7 @@ fn parse_operator_0(input: &str) -> IResult<&str, Packet> {
                 match parse_packet(inp) {
                     Ok((more, p)) => {
                         pkts.push(p);
-                        consumed = consumed + (bs.len() - more.len());
+                        consumed = consumed + (inp.len() - more.len());
                         inp = more;
                     }
                     Err(e) => return Err(e),
