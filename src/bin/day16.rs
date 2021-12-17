@@ -1,4 +1,6 @@
 use aoc2021::parser::Ebits;
+use core::u64::MAX;
+use core::u64::MIN;
 use hex;
 use nom::branch::alt;
 use nom::bytes::complete::tag;
@@ -9,6 +11,9 @@ use nom::multi::many0;
 use nom::sequence::tuple;
 use nom::IResult;
 use nom::Parser;
+use std::cmp::max;
+use std::cmp::min;
+use std::cmp::Ordering;
 use std::convert::TryInto;
 use std::env;
 use std::fs::read_to_string;
@@ -141,7 +146,6 @@ pub fn to_bits(s: &str) -> String {
 }
 
 fn parse_packet(input: &str) -> IResult<&str, Packet> {
-    println!("parsing {:?}", input);
     alt((parse_value, parse_operator_0, parse_operator_1))(input)
 }
 
@@ -149,7 +153,7 @@ fn parse_packets(input: &str) -> Option<Packet> {
     let input_bits = to_bits(input);
     match parse_packet(&input_bits) {
         Ok((inp, p)) => {
-            println!("Success parsing, remaining {:?}", inp);
+            println!("Success parsing, {:?}", p);
             Some(p)
         }
         Err(_) => None,
@@ -164,6 +168,32 @@ fn versions(packet: &Packet) -> u64 {
         }
 }
 
+fn interpret(packet: &Packet) -> u64 {
+    match &packet.content {
+        Content::Value(v) => *v,
+        Content::Operator(0, pkts) => pkts.iter().fold(0, |n, pkt| n + interpret(pkt)),
+        Content::Operator(1, pkts) => pkts.iter().fold(1, |n, pkt| n * interpret(pkt)),
+        Content::Operator(2, pkts) => pkts.iter().fold(MAX, |n, pkt| min(n, interpret(pkt))),
+        Content::Operator(3, pkts) => pkts.iter().fold(MIN, |n, pkt| max(n, interpret(pkt))),
+        Content::Operator(5, pkts) => match interpret(&pkts[0]).cmp(&interpret(&pkts[1])) {
+            Ordering::Less => 0,
+            Ordering::Equal => 0,
+            Ordering::Greater => 1,
+        },
+        Content::Operator(6, pkts) => match interpret(&pkts[0]).cmp(&interpret(&pkts[1])) {
+            Ordering::Less => 1,
+            Ordering::Equal => 0,
+            Ordering::Greater => 0,
+        },
+        Content::Operator(7, pkts) => match interpret(&pkts[0]).cmp(&interpret(&pkts[1])) {
+            Ordering::Less => 0,
+            Ordering::Equal => 1,
+            Ordering::Greater => 0,
+        },
+        _ => 0,
+    }
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
@@ -173,7 +203,7 @@ fn main() {
 
     if let Ok(input) = read_to_string(&args[1]) {
         if let Some(packet) = parse_packets(&input) {
-            let solution = versions(&packet);
+            let solution = interpret(&packet);
             println!("{}", solution);
         }
     } else {
@@ -315,5 +345,20 @@ mod tests {
                 )
             }
         );
+    }
+
+    #[test]
+    fn can_interpret_packets() {
+        assert_eq!(
+            interpret(&parse_packets("9C0141080250320F1802104A08").unwrap()),
+            1
+        );
+        assert_eq!(interpret(&parse_packets("9C005AC2F8F0").unwrap()), 0);
+        assert_eq!(interpret(&parse_packets("F600BC2D8F").unwrap()), 0);
+        assert_eq!(interpret(&parse_packets("D8005AC2A8F0").unwrap()), 1);
+        assert_eq!(interpret(&parse_packets("CE00C43D881120").unwrap()), 9);
+        assert_eq!(interpret(&parse_packets("880086C3E88112").unwrap()), 7);
+        assert_eq!(interpret(&parse_packets("04005AC33890").unwrap()), 54);
+        assert_eq!(interpret(&parse_packets("C200B40A82").unwrap()), 3);
     }
 }
