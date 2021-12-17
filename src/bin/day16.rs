@@ -28,11 +28,9 @@ struct Packet {
 
 fn convert(vals: (Vec<u8>, u8)) -> u64 {
     let mut res = 0_u64;
-    println!("{:?}", vals);
     for x in vals.0 {
         res *= 16;
         res += x as u64;
-        println!("{}", res);
     }
     res *= 16;
     res += vals.1 as u64;
@@ -45,12 +43,9 @@ fn parse_value(input: (&[u8], usize)) -> IResult<(&[u8], usize), Packet> {
     let val_bits = tuple((many0(val_fragment), val_term));
     let mut value = map(
         tuple((take(3usize), tag(0x04, 3usize), val_bits)),
-        |(v, _, bts)| {
-            println!("{:?}", v);
-            Packet {
-                version: v,
-                content: Content::Value(convert(bts)),
-            }
+        |(v, _, bts)| Packet {
+            version: v,
+            content: Content::Value(convert(bts)),
         },
     );
     value(input)
@@ -60,19 +55,25 @@ fn parse_operator(input: (&[u8], usize)) -> IResult<(&[u8], usize), Packet> {
     let mut op_prefix = tuple((take(3usize), take(3usize), tag(0x0, 1usize), take(15usize)));
     match op_prefix(input) {
         Ok(((bytes, off), (version, t, _, len))) => {
-            let mut remaining = bytes.len() * 8 - off;
+            let remaining = bytes.len() * 8 - off;
+            let mut consumed = 0;
             println!(
                 "bytes: {:?} offset: {} len: {} remaining: {} ",
                 bytes, off, len, remaining
             );
             let mut pkts = vec![];
             let mut inp = (bytes, off);
-            while remaining > len {
+            while consumed < len {
                 match parse_packet(inp) {
                     Ok(((nbytes, noff), p)) => {
                         pkts.push(p);
-                        remaining = nbytes.len() * 8 - noff;
+                        println!("bytes: {:?} offset: {} ", nbytes, noff);
+                        consumed = consumed + (remaining - (nbytes.len() * 8 - noff));
                         inp = (nbytes, noff);
+                        println!(
+                            "bytes: {:?} offset: {} len: {} consumed: {} ",
+                            nbytes, noff, len, consumed
+                        );
                     }
                     Err(e) => return Err(e),
                 }
@@ -161,9 +162,9 @@ mod tests {
         assert_eq!(
             res,
             Some(Packet {
-                version: 6,
+                version: 1,
                 content: Content::Operator(
-                    2,
+                    6,
                     vec![
                         Packet {
                             version: 6,
