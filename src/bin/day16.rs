@@ -51,7 +51,7 @@ fn parse_value(input: (&[u8], usize)) -> IResult<(&[u8], usize), Packet> {
     value(input)
 }
 
-fn parse_operator(input: (&[u8], usize)) -> IResult<(&[u8], usize), Packet> {
+fn parse_operator_0(input: (&[u8], usize)) -> IResult<(&[u8], usize), Packet> {
     let mut op_prefix = tuple((take(3usize), take(3usize), tag(0x0, 1usize), take(15usize)));
     match op_prefix(input) {
         Ok(((bytes, off), (version, t, _, len))) => {
@@ -90,6 +90,35 @@ fn parse_operator(input: (&[u8], usize)) -> IResult<(&[u8], usize), Packet> {
     }
 }
 
+fn parse_operator_1(input: (&[u8], usize)) -> IResult<(&[u8], usize), Packet> {
+    let mut op_prefix = tuple((take(3usize), take(3usize), tag(0x01, 1usize), take(11usize)));
+    match op_prefix(input) {
+        Ok((inp, (version, t, _, len))) => {
+            let mut remaining: usize = len;
+            let mut pkts = vec![];
+            let mut stream = inp;
+            while remaining > 0 {
+                match parse_packet(stream) {
+                    Ok((ninp, p)) => {
+                        pkts.push(p);
+                        stream = ninp;
+                        remaining -= 1;
+                    }
+                    Err(e) => return Err(e),
+                }
+            }
+            Ok((
+                inp,
+                Packet {
+                    version,
+                    content: Content::Operator(t, pkts),
+                },
+            ))
+        }
+        Err(e) => Err(e),
+    }
+}
+
 pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
     (0..s.len())
         .step_by(2)
@@ -98,7 +127,7 @@ pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
 }
 
 fn parse_packet(input: (&[u8], usize)) -> IResult<(&[u8], usize), Packet> {
-    alt((parse_value, parse_operator))(input)
+    alt((parse_value, parse_operator_0, parse_operator_1))(input)
 }
 
 fn parse_packets(input: &str) -> Option<Packet> {
@@ -173,6 +202,37 @@ mod tests {
                         Packet {
                             version: 2,
                             content: Content::Value(20)
+                        }
+                    ]
+                )
+            })
+        );
+    }
+
+    #[test]
+    fn can_parse_operator_packet_with_len_1() {
+        let input = "EE00D40C823060";
+
+        let res = parse_packets(&input);
+
+        assert_eq!(
+            res,
+            Some(Packet {
+                version: 7,
+                content: Content::Operator(
+                    3,
+                    vec![
+                        Packet {
+                            version: 2,
+                            content: Content::Value(1)
+                        },
+                        Packet {
+                            version: 4,
+                            content: Content::Value(2)
+                        },
+                        Packet {
+                            version: 1,
+                            content: Content::Value(3)
                         }
                     ]
                 )
