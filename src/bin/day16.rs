@@ -4,6 +4,7 @@ use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::bytes::complete::take;
 use nom::combinator::map;
+use nom::multi::count;
 use nom::multi::many0;
 use nom::sequence::tuple;
 use nom::IResult;
@@ -62,17 +63,14 @@ fn parse_value(input: &str) -> IResult<&str, Packet> {
     value(input)
 }
 
-fn op_prefix<'a>(s: &str, input: &'a str) -> IResult<&'a str, (u8, u8, (), u64)> {
-    tuple((
+fn parse_operator_0(input: &str) -> IResult<&str, Packet> {
+    match tuple((
         take(3usize).map(|n| as_num(n) as u8),
         take(3usize).map(|n| as_num(n) as u8),
-        tag(s).map(|_| ()),
+        tag("0").map(|_| ()),
         take(15usize).map(|n| as_num(n)),
     ))(input)
-}
-
-fn parse_operator_0(input: &str) -> IResult<&str, Packet> {
-    match op_prefix("0", input) {
+    {
         Ok((bs, (version, t, _, len))) => {
             let mut consumed = 0usize;
             let mut pkts = vec![];
@@ -100,30 +98,17 @@ fn parse_operator_0(input: &str) -> IResult<&str, Packet> {
 }
 
 fn parse_operator_1(input: &str) -> IResult<&str, Packet> {
-    match op_prefix("1", input) {
-        Ok((inp, (version, t, _, len))) => {
-            let mut remaining: usize = len as usize;
-            let mut pkts = vec![];
-            let mut stream = inp;
-            while remaining > 0 {
-                match parse_packet(stream) {
-                    Ok((ninp, p)) => {
-                        pkts.push(p);
-                        stream = ninp;
-                        remaining -= 1;
-                    }
-                    Err(e) => return Err(e),
-                }
-            }
-
-            Ok((
-                stream,
-                Packet {
-                    version,
-                    content: Content::Operator(t, pkts),
-                },
-            ))
-        }
+    match tuple((
+        take(3usize).map(|n| as_num(n) as u8),
+        take(3usize).map(|n| as_num(n) as u8),
+        tag("1").map(|_| ()),
+        take(11usize).map(|n| as_num(n)),
+    ))(input)
+    {
+        Ok((inp, (version, t, _, len))) => map(count(parse_packet, len as usize), |pkts| Packet {
+            version,
+            content: Content::Operator(t, pkts),
+        })(inp),
         Err(e) => Err(e),
     }
 }
