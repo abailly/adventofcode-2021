@@ -18,6 +18,7 @@ use std::cmp::Ordering;
 use std::env;
 use std::fs::read_to_string;
 use std::process;
+use std::u64::MIN;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 enum SN {
@@ -57,10 +58,7 @@ fn add_left_most(val: i8, sn: SN) -> SN {
 fn explode1(sn: SN) -> (i8, i8, SN) {
     match sn {
         SN::Pair(1, l, r) => match (*l, *r) {
-            (SN::Reg(nl), SN::Reg(nr)) => {
-                println!("exploded ({},{})", nl, nr);
-                (nl as i8, nr as i8, SN::Reg(0))
-            }
+            (SN::Reg(nl), SN::Reg(nr)) => (nl as i8, nr as i8, SN::Reg(0)),
             _ => unreachable!(),
         },
         SN::Pair(_, l, r) => match depth(&l).cmp(&depth(&r)) {
@@ -125,7 +123,6 @@ fn split(sn: SN) -> Option<SN> {
                 Box::new(SN::Reg(val / 2)),
                 Box::new(SN::Reg(val / 2 + rem)),
             );
-            println!("split {} into {:?}", val, res);
             Some(res)
         }
         _ => None,
@@ -176,10 +173,21 @@ fn main() {
     if let Ok(input) = read_to_string(&args[1]) {
         let nums: Vec<&str> = input.split("\n").filter(|s| !s.is_empty()).collect();
         let sns: Vec<SN> = nums.iter().map(|s| parse_sn(s).unwrap().1).collect();
-        let res = sns[1..]
-            .iter()
-            .fold(sns[0].clone(), |a, b| reduce(add(a, b.clone())));
-        println!("magnitude: {}", magnitude(res));
+        let other = sns.clone();
+        let mut max = MIN;
+        for s1 in sns.iter() {
+            for s2 in other.iter() {
+                let a = s1.clone();
+                let b = s2.clone();
+                if *s1 != *s2 {
+                    let mag = magnitude(reduce(add(a, b)));
+                    if mag > max {
+                        max = mag;
+                    }
+                }
+            }
+        }
+        println!("max magnitude: {}", max);
     } else {
         println!("fail to parse {}", args[1]);
     }
