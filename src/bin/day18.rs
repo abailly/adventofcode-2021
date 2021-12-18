@@ -57,7 +57,10 @@ fn add_left_most(val: i8, sn: SN) -> SN {
 fn explode1(sn: SN) -> (i8, i8, SN) {
     match sn {
         SN::Pair(1, l, r) => match (*l, *r) {
-            (SN::Reg(nl), SN::Reg(nr)) => (nl as i8, nr as i8, SN::Reg(0)),
+            (SN::Reg(nl), SN::Reg(nr)) => {
+                println!("exploded ({},{})", nl, nr);
+                (nl as i8, nr as i8, SN::Reg(0))
+            }
             _ => unreachable!(),
         },
         SN::Pair(_, l, r) => match depth(&l).cmp(&depth(&r)) {
@@ -91,15 +94,13 @@ fn explode1(sn: SN) -> (i8, i8, SN) {
 }
 
 fn explode(sn: SN) -> Option<SN> {
-    println!("explode {:?}", sn);
     match sn {
-        SN::Pair(depth, a, b) if depth > 4u8 => Some(explode1(SN::Pair(depth, a, b)).2),
+        SN::Pair(depth, a, b) if depth == 5u8 => Some(explode1(SN::Pair(depth, a, b)).2),
         _ => None,
     }
 }
 
 fn split(sn: SN) -> Option<SN> {
-    println!("split {:?}", sn);
     match sn {
         SN::Pair(_, a, b) => {
             let bn = b.clone();
@@ -117,11 +118,16 @@ fn split(sn: SN) -> Option<SN> {
             )
         }
 
-        SN::Reg(val) if val > 9 => Some(SN::Pair(
-            1,
-            Box::new(SN::Reg(val / 2)),
-            Box::new(SN::Reg(val / 2 + 1)),
-        )),
+        SN::Reg(val) if val > 9 => {
+            let rem = val % 2;
+            let res = SN::Pair(
+                1,
+                Box::new(SN::Reg(val / 2)),
+                Box::new(SN::Reg(val / 2 + rem)),
+            );
+            println!("split {} into {:?}", val, res);
+            Some(res)
+        }
         _ => None,
     }
 }
@@ -153,6 +159,13 @@ fn add(n1: SN, n2: SN) -> SN {
     SN::Pair(max(depth(&n1), depth(&n2)) + 1, Box::new(n1), Box::new(n2))
 }
 
+fn magnitude(sn: SN) -> u64 {
+    match sn {
+        SN::Pair(depth, a, b) => 3 * magnitude(*a) + 2 * magnitude(*b),
+        SN::Reg(v) => v as u64,
+    }
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
@@ -160,8 +173,13 @@ fn main() {
         process::exit(1);
     }
 
-    if let Ok(_input) = read_to_string(&args[1]) {
-        ()
+    if let Ok(input) = read_to_string(&args[1]) {
+        let nums: Vec<&str> = input.split("\n").filter(|s| !s.is_empty()).collect();
+        let sns: Vec<SN> = nums.iter().map(|s| parse_sn(s).unwrap().1).collect();
+        let res = sns[1..]
+            .iter()
+            .fold(sns[0].clone(), |a, b| reduce(add(a, b.clone())));
+        println!("magnitude: {}", magnitude(res));
     } else {
         println!("fail to parse {}", args[1]);
     }
@@ -171,50 +189,50 @@ fn main() {
 mod tests {
     use super::*;
 
-    // #[test]
-    // fn can_explode() {
-    //     let tests = vec![
-    //         ("[[[[[9,8],1],2],3],4]", "[[[[0,9],2],3],4]"),
-    //         ("[7,[6,[5,[4,[3,2]]]]]", "[7,[6,[5,[7,0]]]]"),
-    //         ("[[6,[5,[4,[3,2]]]],1]", "[[6,[5,[7,0]]],3]"),
-    //         (
-    //             "[[3,[2,[1,[7,3]]]],[6,[5,[4,[3,2]]]]]",
-    //             "[[3,[2,[8,0]]],[9,[5,[4,[3,2]]]]]",
-    //         ),
-    //         (
-    //             "[[3,[2,[8,0]]],[9,[5,[4,[3,2]]]]]",
-    //             "[[3,[2,[8,0]]],[9,[5,[7,0]]]]",
-    //         ),
-    //     ];
-    //     for (ins, outs) in tests {
-    //         println!("testing {}", ins);
-    //         let inp = parse_sn(ins).unwrap().1;
-    //         let out = parse_sn(outs).unwrap().1;
+    #[test]
+    fn can_explode() {
+        let tests = vec![
+            ("[[[[[9,8],1],2],3],4]", "[[[[0,9],2],3],4]"),
+            ("[7,[6,[5,[4,[3,2]]]]]", "[7,[6,[5,[7,0]]]]"),
+            ("[[6,[5,[4,[3,2]]]],1]", "[[6,[5,[7,0]]],3]"),
+            (
+                "[[3,[2,[1,[7,3]]]],[6,[5,[4,[3,2]]]]]",
+                "[[3,[2,[8,0]]],[9,[5,[4,[3,2]]]]]",
+            ),
+            (
+                "[[3,[2,[8,0]]],[9,[5,[4,[3,2]]]]]",
+                "[[3,[2,[8,0]]],[9,[5,[7,0]]]]",
+            ),
+        ];
+        for (ins, outs) in tests {
+            println!("testing {}", ins);
+            let inp = parse_sn(ins).unwrap().1;
+            let out = parse_sn(outs).unwrap().1;
 
-    //         assert_eq!(explode(inp), Some(out));
-    //     }
-    // }
+            assert_eq!(explode(inp), Some(out));
+        }
+    }
 
-    // #[test]
-    // fn can_split() {
-    //     let tests = vec![
-    //         (
-    //             "[[[[0,7],4],[15,[0,13]]],[1,1]]",
-    //             "[[[[0,7],4],[[7,8],[0,13]]],[1,1]]",
-    //         ),
-    //         (
-    //             "[[[[0,7],4],[[7,8],[0,13]]],[1,1]]",
-    //             "[[[[0,7],4],[[7,8],[0,[6,7]]]],[1,1]]",
-    //         ),
-    //     ];
-    //     for (ins, outs) in tests {
-    //         println!("testing {}", ins);
-    //         let inp = parse_sn(ins).unwrap().1;
-    //         let out = parse_sn(outs).unwrap().1;
+    #[test]
+    fn can_split() {
+        let tests = vec![
+            (
+                "[[[[0,7],4],[15,[0,13]]],[1,1]]",
+                "[[[[0,7],4],[[7,8],[0,13]]],[1,1]]",
+            ),
+            (
+                "[[[[0,7],4],[[7,8],[0,13]]],[1,1]]",
+                "[[[[0,7],4],[[7,8],[0,[6,7]]]],[1,1]]",
+            ),
+        ];
+        for (ins, outs) in tests {
+            println!("testing {}", ins);
+            let inp = parse_sn(ins).unwrap().1;
+            let out = parse_sn(outs).unwrap().1;
 
-    //         assert_eq!(split(inp), Some(out));
-    //     }
-    // }
+            assert_eq!(split(inp), Some(out));
+        }
+    }
 
     #[test]
     fn can_reduce_added_value() {
@@ -229,31 +247,74 @@ mod tests {
         assert_eq!(res, expected);
     }
 
-    // #[test]
-    // fn can_parse_literal_value() {
-    //     let input = vec![
-    //         "[[[0,[5,8]],[[1,7],[9,6]]],[[4,[1,2]],[[1,4],2]]]",
-    //         "[[[5,[2,8]],4],[5,[[9,9],0]]]",
-    //         "[6,[[[6,2],[5,6]],[[7,6],[4,7]]]]",
-    //         "[[[6,[0,7]],[0,9]],[4,[9,[9,0]]]]",
-    //         "[[[7,[6,4]],[3,[1,3]]],[[[5,5],1],9]]",
-    //         "[[6,[[7,3],[3,2]]],[[[3,8],[5,7]],4]]",
-    //         "[[[[5,4],[7,7]],8],[[8,3],8]]",
-    //         "[[9,3],[[9,9],[6,[4,9]]]]",
-    //         "[[2,[[7,7],7]],[[5,8],[[9,3],[0,2]]]]",
-    //         "[[[[5,2],5],[8,[3,7]]],[[5,[7,5]],[4,4]]]",
-    //     ];
+    #[test]
+    fn can_reduce_complex_value() {
+        let input = vec![
+            "[[[0,[4,5]],[0,0]],[[[4,5],[2,6]],[9,5]]]",
+            "[7,[[[3,7],[4,3]],[[6,3],[8,8]]]]",
+            "[[2,[[0,8],[3,4]]],[[[6,7],1],[7,[1,6]]]]",
+            "[[[[2,4],7],[6,[0,5]]],[[[6,8],[2,8]],[[2,1],[4,5]]]]",
+            "[7,[5,[[3,8],[1,4]]]]",
+            "[[2,[2,2]],[8,[8,1]]]",
+            "[2,9]",
+            "[1,[[[9,3],9],[[9,0],[0,7]]]]",
+            "[[[5,[7,4]],7],1]",
+            "[[[[4,2],2],6],[8,7]]",
+        ];
 
-    //     let sns: Vec<SN> = input.iter().map(|s| parse_sn(s).unwrap().1).collect();
+        let sns: Vec<SN> = input.iter().map(|s| parse_sn(s).unwrap().1).collect();
 
-    //     let expected = parse_sn("[[[[6,6],[7,6]],[[7,7],[7,0]]],[[[7,7],[7,7]],[[7,8],[9,9]]]]")
-    //         .unwrap()
-    //         .1;
+        let expected = parse_sn("[[[[8,7],[7,7]],[[8,6],[7,7]]],[[[0,7],[6,6]],[8,7]]]")
+            .unwrap()
+            .1;
 
-    //     let res = sns[1..]
-    //         .iter()
-    //         .fold(sns[0].clone(), |a, b| reduce(add(a, b.clone())));
+        let res = sns[1..]
+            .iter()
+            .fold(sns[0].clone(), |a, b| reduce(add(a, b.clone())));
 
-    //     assert_eq!(res, expected);
-    // }
+        assert_eq!(res, expected);
+    }
+
+    #[test]
+    fn can_reduce_simple_value() {
+        let input = vec!["[1,1]", "[2,2]", "[3,3]", "[4,4]", "[5,5]", "[6,6]"];
+
+        let sns: Vec<SN> = input.iter().map(|s| parse_sn(s).unwrap().1).collect();
+
+        let expected = parse_sn("[[[[5,0],[7,4]],[5,5]],[6,6]]").unwrap().1;
+
+        let res = sns[1..]
+            .iter()
+            .fold(sns[0].clone(), |a, b| reduce(add(a, b.clone())));
+
+        assert_eq!(res, expected);
+    }
+    #[test]
+    fn can_compute_magnitude_on_sample() {
+        let input = vec![
+            "[[[0,[5,8]],[[1,7],[9,6]]],[[4,[1,2]],[[1,4],2]]]",
+            "[[[5,[2,8]],4],[5,[[9,9],0]]]",
+            "[6,[[[6,2],[5,6]],[[7,6],[4,7]]]]",
+            "[[[6,[0,7]],[0,9]],[4,[9,[9,0]]]]",
+            "[[[7,[6,4]],[3,[1,3]]],[[[5,5],1],9]]",
+            "[[6,[[7,3],[3,2]]],[[[3,8],[5,7]],4]]",
+            "[[[[5,4],[7,7]],8],[[8,3],8]]",
+            "[[9,3],[[9,9],[6,[4,9]]]]",
+            "[[2,[[7,7],7]],[[5,8],[[9,3],[0,2]]]]",
+            "[[[[5,2],5],[8,[3,7]]],[[5,[7,5]],[4,4]]]",
+        ];
+
+        let sns: Vec<SN> = input.iter().map(|s| parse_sn(s).unwrap().1).collect();
+
+        let expected = parse_sn("[[[[6,6],[7,6]],[[7,7],[7,0]]],[[[7,7],[7,7]],[[7,8],[9,9]]]]")
+            .unwrap()
+            .1;
+
+        let res = sns[1..]
+            .iter()
+            .fold(sns[0].clone(), |a, b| reduce(add(a, b.clone())));
+
+        assert_eq!(res, expected);
+        assert_eq!(magnitude(res), 4140);
+    }
 }
