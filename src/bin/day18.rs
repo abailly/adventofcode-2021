@@ -32,28 +32,69 @@ fn depth(sn: &SN) -> u8 {
     }
 }
 
-fn explode1(sn: SN) -> SN {
+fn add_right_most(val: i8, sn: SN) -> SN {
+    if val == -1 {
+        sn
+    } else {
+        match sn {
+            SN::Pair(d, l, r) => SN::Pair(d, Box::new(add_right_most(val, *l)), r),
+            SN::Reg(v) => SN::Reg(v + val as u8),
+        }
+    }
+}
+
+fn add_left_most(val: i8, sn: SN) -> SN {
+    if val == -1 {
+        sn
+    } else {
+        match sn {
+            SN::Pair(d, l, r) => SN::Pair(d, l, Box::new(add_left_most(val, *r))),
+            SN::Reg(v) => SN::Reg(v + val as u8),
+        }
+    }
+}
+
+fn explode1(sn: SN) -> (i8, i8, SN) {
     println!("explode1 {:?}", sn);
     match sn {
-        SN::Pair(1, l, r) => SN::Reg(0),
+        SN::Pair(1, l, r) => match (*l, *r) {
+            (SN::Reg(nl), SN::Reg(nr)) => (nl as i8, nr as i8, SN::Reg(0)),
+            _ => unreachable!(),
+        },
         SN::Pair(_, l, r) => match depth(&l).cmp(&depth(&r)) {
             Ordering::Less => {
-                let nr = explode1(*r);
-                SN::Pair(max(depth(&l), depth(&nr)) + 1, l, Box::new(nr))
+                let (lv, rv, nr) = explode1(*r);
+                (
+                    -1,
+                    rv,
+                    SN::Pair(
+                        max(depth(&l), depth(&nr)) + 1,
+                        Box::new(add_right_most(lv, *l)),
+                        Box::new(nr),
+                    ),
+                )
             }
             _ => {
-                let nl = explode1(*l);
-                SN::Pair(max(depth(&nl), depth(&r)) + 1, Box::new(nl), r)
+                let (lv, rv, nl) = explode1(*l);
+                (
+                    lv,
+                    -1,
+                    SN::Pair(
+                        max(depth(&nl), depth(&r)) + 1,
+                        Box::new(nl),
+                        Box::new(add_left_most(rv, *r)),
+                    ),
+                )
             }
         },
-        _ => sn,
+        _ => (-1, -1, sn),
     }
 }
 
 fn explode(sn: SN) -> Option<SN> {
     println!("exploding {:?}", sn);
     match sn {
-        SN::Pair(depth, a, b) if depth > 4u8 => Some(explode1(SN::Pair(depth, a, b))),
+        SN::Pair(depth, a, b) if depth > 4u8 => Some(explode1(SN::Pair(depth, a, b)).2),
         _ => None,
     }
 }
