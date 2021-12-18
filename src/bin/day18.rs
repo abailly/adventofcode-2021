@@ -92,9 +92,35 @@ fn explode1(sn: SN) -> (i8, i8, SN) {
 }
 
 fn explode(sn: SN) -> Option<SN> {
-    println!("exploding {:?}", sn);
     match sn {
         SN::Pair(depth, a, b) if depth > 4u8 => Some(explode1(SN::Pair(depth, a, b)).2),
+        _ => None,
+    }
+}
+
+fn split(sn: SN) -> Option<SN> {
+    match sn {
+        SN::Pair(_, a, b) => {
+            let bn = b.clone();
+            let an = a.clone();
+
+            split(*a).map_or(
+                split(*b).map(|sr| SN::Pair(max(depth(&an), depth(&sr)) + 1, an, Box::new(sr))),
+                |newsn| {
+                    Some(SN::Pair(
+                        max(depth(&newsn), depth(&bn)) + 1,
+                        Box::new(newsn),
+                        bn,
+                    ))
+                },
+            )
+        }
+
+        SN::Reg(val) if val > 9 => Some(SN::Pair(
+            1,
+            Box::new(SN::Reg(val / 2)),
+            Box::new(SN::Reg(val / 2 + 1)),
+        )),
         _ => None,
     }
 }
@@ -162,6 +188,27 @@ mod tests {
             let out = parse_sn(outs).unwrap().1;
 
             assert_eq!(explode(inp), Some(out));
+        }
+    }
+
+    #[test]
+    fn can_split() {
+        let tests = vec![
+            (
+                "[[[[0,7],4],[15,[0,13]]],[1,1]]",
+                "[[[[0,7],4],[[7,8],[0,13]]],[1,1]]",
+            ),
+            (
+                "[[[[0,7],4],[[7,8],[0,13]]],[1,1]]",
+                "[[[[0,7],4],[[7,8],[0,[6,7]]]],[1,1]]",
+            ),
+        ];
+        for (ins, outs) in tests {
+            println!("testing {}", ins);
+            let inp = parse_sn(ins).unwrap().1;
+            let out = parse_sn(outs).unwrap().1;
+
+            assert_eq!(split(inp), Some(out));
         }
     }
 
