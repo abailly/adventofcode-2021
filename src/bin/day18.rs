@@ -1,21 +1,16 @@
-use crate::bits::streaming::tag;
-use crate::bits::streaming::take;
 use aoc2021::parser::num;
-use aoc2021::parser::Ebits;
-use hex;
-use nom::bits;
 use nom::branch::alt;
 use nom::character::complete::char;
 use nom::combinator::map;
-use nom::multi::many0;
 use nom::sequence::delimited;
 use nom::sequence::separated_pair;
-use nom::sequence::tuple;
 use nom::IResult;
 use nom::Parser;
 use std::cmp::max;
 use std::cmp::Ordering;
 use std::env;
+use std::fmt;
+use std::fmt::Display;
 use std::fs::read_to_string;
 use std::process;
 use std::u64::MIN;
@@ -24,6 +19,15 @@ use std::u64::MIN;
 enum SN {
     Reg(u8),
     Pair(u8, Box<SN>, Box<SN>),
+}
+
+impl Display for SN {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SN::Pair(_, l, r) => write!(f, "[{}, {}]", l, r),
+            SN::Reg(v) => write!(f, "{}", v),
+        }
+    }
 }
 
 fn depth(sn: &SN) -> u8 {
@@ -131,9 +135,15 @@ fn split(sn: SN) -> Option<SN> {
 
 fn reduce(sn: SN) -> SN {
     match explode(sn.clone()) {
-        Some(nsn) => reduce(nsn),
+        Some(nsn) => {
+            println!("exploded => {}", nsn);
+            reduce(nsn)
+        }
         None => match split(sn.clone()) {
-            Some(nsn) => reduce(nsn),
+            Some(nsn) => {
+                println!("split => {}", nsn);
+                reduce(nsn)
+            }
             None => sn,
         },
     }
@@ -158,7 +168,7 @@ fn add(n1: SN, n2: SN) -> SN {
 
 fn magnitude(sn: SN) -> u64 {
     match sn {
-        SN::Pair(depth, a, b) => 3 * magnitude(*a) + 2 * magnitude(*b),
+        SN::Pair(_, a, b) => 3 * magnitude(*a) + 2 * magnitude(*b),
         SN::Reg(v) => v as u64,
     }
 }
