@@ -55,7 +55,6 @@ fn add_left_most(val: i8, sn: SN) -> SN {
 }
 
 fn explode1(sn: SN) -> (i8, i8, SN) {
-    println!("explode1 {:?}", sn);
     match sn {
         SN::Pair(1, l, r) => match (*l, *r) {
             (SN::Reg(nl), SN::Reg(nr)) => (nl as i8, nr as i8, SN::Reg(0)),
@@ -92,6 +91,7 @@ fn explode1(sn: SN) -> (i8, i8, SN) {
 }
 
 fn explode(sn: SN) -> Option<SN> {
+    println!("explode {:?}", sn);
     match sn {
         SN::Pair(depth, a, b) if depth > 4u8 => Some(explode1(SN::Pair(depth, a, b)).2),
         _ => None,
@@ -99,6 +99,7 @@ fn explode(sn: SN) -> Option<SN> {
 }
 
 fn split(sn: SN) -> Option<SN> {
+    println!("split {:?}", sn);
     match sn {
         SN::Pair(_, a, b) => {
             let bn = b.clone();
@@ -128,7 +129,10 @@ fn split(sn: SN) -> Option<SN> {
 fn reduce(sn: SN) -> SN {
     match explode(sn.clone()) {
         Some(nsn) => reduce(nsn),
-        None => sn,
+        None => match split(sn.clone()) {
+            Some(nsn) => reduce(nsn),
+            None => sn,
+        },
     }
 }
 
@@ -167,49 +171,62 @@ fn main() {
 mod tests {
     use super::*;
 
+    // #[test]
+    // fn can_explode() {
+    //     let tests = vec![
+    //         ("[[[[[9,8],1],2],3],4]", "[[[[0,9],2],3],4]"),
+    //         ("[7,[6,[5,[4,[3,2]]]]]", "[7,[6,[5,[7,0]]]]"),
+    //         ("[[6,[5,[4,[3,2]]]],1]", "[[6,[5,[7,0]]],3]"),
+    //         (
+    //             "[[3,[2,[1,[7,3]]]],[6,[5,[4,[3,2]]]]]",
+    //             "[[3,[2,[8,0]]],[9,[5,[4,[3,2]]]]]",
+    //         ),
+    //         (
+    //             "[[3,[2,[8,0]]],[9,[5,[4,[3,2]]]]]",
+    //             "[[3,[2,[8,0]]],[9,[5,[7,0]]]]",
+    //         ),
+    //     ];
+    //     for (ins, outs) in tests {
+    //         println!("testing {}", ins);
+    //         let inp = parse_sn(ins).unwrap().1;
+    //         let out = parse_sn(outs).unwrap().1;
+
+    //         assert_eq!(explode(inp), Some(out));
+    //     }
+    // }
+
+    // #[test]
+    // fn can_split() {
+    //     let tests = vec![
+    //         (
+    //             "[[[[0,7],4],[15,[0,13]]],[1,1]]",
+    //             "[[[[0,7],4],[[7,8],[0,13]]],[1,1]]",
+    //         ),
+    //         (
+    //             "[[[[0,7],4],[[7,8],[0,13]]],[1,1]]",
+    //             "[[[[0,7],4],[[7,8],[0,[6,7]]]],[1,1]]",
+    //         ),
+    //     ];
+    //     for (ins, outs) in tests {
+    //         println!("testing {}", ins);
+    //         let inp = parse_sn(ins).unwrap().1;
+    //         let out = parse_sn(outs).unwrap().1;
+
+    //         assert_eq!(split(inp), Some(out));
+    //     }
+    // }
+
     #[test]
-    fn can_explode() {
-        let tests = vec![
-            ("[[[[[9,8],1],2],3],4]", "[[[[0,9],2],3],4]"),
-            ("[7,[6,[5,[4,[3,2]]]]]", "[7,[6,[5,[7,0]]]]"),
-            ("[[6,[5,[4,[3,2]]]],1]", "[[6,[5,[7,0]]],3]"),
-            (
-                "[[3,[2,[1,[7,3]]]],[6,[5,[4,[3,2]]]]]",
-                "[[3,[2,[8,0]]],[9,[5,[4,[3,2]]]]]",
-            ),
-            (
-                "[[3,[2,[8,0]]],[9,[5,[4,[3,2]]]]]",
-                "[[3,[2,[8,0]]],[9,[5,[7,0]]]]",
-            ),
-        ];
-        for (ins, outs) in tests {
-            println!("testing {}", ins);
-            let inp = parse_sn(ins).unwrap().1;
-            let out = parse_sn(outs).unwrap().1;
+    fn can_reduce_added_value() {
+        let input = vec!["[[[[4,3],4],4],[7,[[8,4],9]]]", "[1,1]"];
 
-            assert_eq!(explode(inp), Some(out));
-        }
-    }
+        let expected = parse_sn("[[[[0,7],4],[[7,8],[6,0]]],[8,1]]").unwrap().1;
 
-    #[test]
-    fn can_split() {
-        let tests = vec![
-            (
-                "[[[[0,7],4],[15,[0,13]]],[1,1]]",
-                "[[[[0,7],4],[[7,8],[0,13]]],[1,1]]",
-            ),
-            (
-                "[[[[0,7],4],[[7,8],[0,13]]],[1,1]]",
-                "[[[[0,7],4],[[7,8],[0,[6,7]]]],[1,1]]",
-            ),
-        ];
-        for (ins, outs) in tests {
-            println!("testing {}", ins);
-            let inp = parse_sn(ins).unwrap().1;
-            let out = parse_sn(outs).unwrap().1;
+        let sns: Vec<SN> = input.iter().map(|s| parse_sn(s).unwrap().1).collect();
 
-            assert_eq!(split(inp), Some(out));
-        }
+        let res = reduce(add(sns[0].clone(), sns[1].clone()));
+
+        assert_eq!(res, expected);
     }
 
     // #[test]
@@ -233,13 +250,9 @@ mod tests {
     //         .unwrap()
     //         .1;
 
-    //     let res = sns[1..].iter().fold(sns[0].clone(), |a, b| {
-    //         reduce(SN::Pair(
-    //             max(depth(&a), depth(b)) + 1,
-    //             Box::new(a),
-    //             Box::new(b.clone()),
-    //         ))
-    //     });
+    //     let res = sns[1..]
+    //         .iter()
+    //         .fold(sns[0].clone(), |a, b| reduce(add(a, b.clone())));
 
     //     assert_eq!(res, expected);
     // }
