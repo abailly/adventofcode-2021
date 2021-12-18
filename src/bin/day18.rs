@@ -37,7 +37,7 @@ fn add_right_most(val: i8, sn: SN) -> SN {
         sn
     } else {
         match sn {
-            SN::Pair(d, l, r) => SN::Pair(d, Box::new(add_right_most(val, *l)), r),
+            SN::Pair(d, l, r) => SN::Pair(d, l, Box::new(add_right_most(val, *r))),
             SN::Reg(v) => SN::Reg(v + val as u8),
         }
     }
@@ -48,7 +48,7 @@ fn add_left_most(val: i8, sn: SN) -> SN {
         sn
     } else {
         match sn {
-            SN::Pair(d, l, r) => SN::Pair(d, l, Box::new(add_left_most(val, *r))),
+            SN::Pair(d, l, r) => SN::Pair(d, Box::new(add_left_most(val, *l)), r),
             SN::Reg(v) => SN::Reg(v + val as u8),
         }
     }
@@ -143,10 +143,26 @@ mod tests {
 
     #[test]
     fn can_explode() {
-        let inp = parse_sn("[[[[[9,8],1],2],3],4]").unwrap().1;
-        let out = parse_sn("[[[[0,9],2],3],4]").unwrap().1;
+        let tests = vec![
+            ("[[[[[9,8],1],2],3],4]", "[[[[0,9],2],3],4]"),
+            ("[7,[6,[5,[4,[3,2]]]]]", "[7,[6,[5,[7,0]]]]"),
+            ("[[6,[5,[4,[3,2]]]],1]", "[[6,[5,[7,0]]],3]"),
+            (
+                "[[3,[2,[1,[7,3]]]],[6,[5,[4,[3,2]]]]]",
+                "[[3,[2,[8,0]]],[9,[5,[4,[3,2]]]]]",
+            ),
+            (
+                "[[3,[2,[8,0]]],[9,[5,[4,[3,2]]]]]",
+                "[[3,[2,[8,0]]],[9,[5,[7,0]]]]",
+            ),
+        ];
+        for (ins, outs) in tests {
+            println!("testing {}", ins);
+            let inp = parse_sn(ins).unwrap().1;
+            let out = parse_sn(outs).unwrap().1;
 
-        assert_eq!(explode(inp), Some(out));
+            assert_eq!(explode(inp), Some(out));
+        }
     }
 
     // #[test]
