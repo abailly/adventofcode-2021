@@ -67,3 +67,6 @@ name = "day16-bits"
 
 [[bin]]
 name = "day17"
+
+[[bin]]
+name = "day18"
