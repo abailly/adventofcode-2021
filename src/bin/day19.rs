@@ -23,6 +23,14 @@ struct Scanner {
     beacons: Vec<Pos>,
 }
 
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+struct Matching {
+    from: usize,
+    to: usize,
+    count: usize,
+    matching: Vec<((usize, usize), (usize, usize))>,
+}
+
 fn scanners() -> Vec<Scanner> {
     return vec![
         Scanner {
@@ -900,19 +908,23 @@ mod tests {
             .iter()
             .map(|sc| compute_distances(&sc.beacons))
             .collect();
+        let mut matchings = vec![];
         for j in 0..dists.len() {
             for i in j + 1..dists.len() {
                 let matching = matching_distances(&dists[i], &dists[j]);
                 if matching.len() > 0 {
-                    println!(
-                        "from {} to {} count: {}, {:?}",
-                        i,
-                        j,
-                        matching.len(),
-                        matching
-                    )
+                    matchings.push(Matching {
+                        from: i,
+                        to: j,
+                        count: matching.len(),
+                        matching,
+                    });
                 };
             }
+        }
+        matchings.sort_by(|m1, m2| m2.matching.len().cmp(&m1.matching.len()));
+        for m in matchings {
+            println!("{:?}", m);
         }
         assert_eq!(0, 4140);
     }
