@@ -1067,10 +1067,26 @@ fn compute_rotation(a: &Vec<Pos>, b: &Vec<Pos>) -> Rotation {
     ALL_ROTATIONS[best_rot]
 }
 
+fn transform_scanner(sc: &Scanner, xform: Option<(Rotation, Pos)>) -> Scanner {
+    match xform {
+        Some((rot, trans)) => {
+            let beacons = sc
+                .beacons
+                .iter()
+                .map(|b| plus(rot.rotate(*b), trans))
+                .collect();
+            Scanner { id: sc.id, beacons }
+        }
+        None => Scanner {
+            id: sc.id,
+            beacons: sc.beacons.clone(),
+        },
+    }
+}
+
 fn compute_transform(
-    sc: &Vec<Scanner>,
-    from: usize,
-    to: usize,
+    sc_from: &Scanner,
+    sc_to: &Scanner,
     mbeacons: &Vec<(usize, usize)>,
 ) -> (Rotation, Pos) {
     // compute centroids in each basis
@@ -1078,8 +1094,8 @@ fn compute_transform(
         mbeacons
             .iter()
             .fold(([0, 0, 0], [0, 0, 0]), |(cf, ct), (f, t)| {
-                let pf = sc[from].beacons[*f];
-                let pt = sc[to].beacons[*t];
+                let pf = sc_from.beacons[*f];
+                let pt = sc_to.beacons[*t];
 
                 (
                     [cf[0] + pf[0], cf[1] + pf[1], cf[2] + pf[2]],
@@ -1102,8 +1118,8 @@ fn compute_transform(
     let (from_points, to_points): (Vec<Pos>, Vec<Pos>) = mbeacons
         .iter()
         .map(|(f, t)| {
-            let pf = sc[from].beacons[*f];
-            let pt = sc[to].beacons[*t];
+            let pf = sc_from.beacons[*f];
+            let pt = sc_to.beacons[*t];
 
             (
                 [
@@ -1308,7 +1324,7 @@ mod tests {
                 ],
             },
         ];
-        let sc = sample_scanners; ////scanners();
+        let sc = sample_scanners; //scanners();
         let mut matchings: Vec<(usize, usize, Vec<(usize, usize)>)> = compute_matchings(&sc)
             .iter()
             .map(|m| {
@@ -1320,14 +1336,24 @@ mod tests {
         matchings.sort();
         println!("{:?}", matchings);
         let mut found_beacons: HashSet<Pos> = HashSet::new();
-        let mut xformed = vec![];
-        for (from, to, mbeacons) in &matchings[0..1] {
-            let (rot, trans) = compute_transform(&sc, *from, *to, mbeacons);
+
+        // transformations found so far
+        let mut xformed = Vec::with_capacity(sc.len());
+        xformed.resize(sc.len(), None);
+        xformed[0] = Some((ALL_ROTATIONS[0], [0, 0, 0]));
+
+        // scanners to transform
+        let mut to_xform: Vec<usize> = (1..sc.len()).collect();
+
+        for (from, to, mbeacons) in matchings {
+            let sc_from = transform_scanner(&sc[from], xformed[from]);
+            let sc_to = transform_scanner(&sc[to], xformed[to]);
+            let (rot, trans) = compute_transform(&sc_from, &sc_to, &mbeacons);
             println!("{} {} {:?} {:?}", from, to, rot, trans);
 
             // initialise found_beacons for first scanner
             if found_beacons.is_empty() {
-                sc[*from].beacons.iter().enumerate().for_each(|(_i, b)| {
+                sc_from.beacons.iter().enumerate().for_each(|(_i, b)| {
                     found_beacons.insert(*b);
                     ()
                 });
@@ -1335,18 +1361,20 @@ mod tests {
 
             let not_to_add: Vec<usize> = mbeacons.iter().map(|(_, t)| *t).collect();
 
-            for i in 0..sc[*to].beacons.len() {
+            for i in 0..sc_to.beacons.len() {
                 if !not_to_add.contains(&i) {
-                    let pt = sc[*to].beacons[i];
+                    let pt = sc_to.beacons[i];
                     let p = plus(rot.rotate(pt), trans);
                     found_beacons.insert(p);
                 }
             }
+            xformed[to] = Some((rot, trans));
+            to_xform.retain(|x| *x != from && *x != to);
         }
 
         let mut bec: Vec<Pos> = found_beacons.drain().collect();
         bec.sort();
-        println!("{} {:?}", found_beacons.len(), bec);
+        println!("{} {:?}", bec.len(), bec);
         assert_eq!(0, 4140);
     }
 }
