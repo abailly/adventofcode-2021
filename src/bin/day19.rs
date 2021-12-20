@@ -1,22 +1,8 @@
-use aoc2021::parser::num;
 use core::u64::MAX;
-use itertools::Itertools;
-use nom::branch::alt;
-use nom::character::complete::char;
-use nom::combinator::map;
-use nom::sequence::delimited;
-use nom::sequence::separated_pair;
-use nom::IResult;
-use nom::Parser;
-use std::cmp::max;
-use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::env;
-use std::fmt;
-use std::fmt::Display;
-use std::fs::read_to_string;
 use std::process;
-use std::u64::MIN;
 
 type Pos = [i64; 3];
 
@@ -1084,6 +1070,7 @@ fn transform_scanner(sc: &Scanner, xform: Option<(Rotation, Pos)>) -> Scanner {
     }
 }
 
+/// from http://nghiaho.com/?page_id=671
 fn compute_transform(
     sc_from: &Scanner,
     sc_to: &Scanner,
@@ -1163,9 +1150,16 @@ fn transform_matrix(points: [(Pos, Pos); 3]) -> [Pos; 3] {
     res
 }
 
+type Matched = (usize, usize, Vec<(usize, usize)>);
+
+fn invert(m: &Matched) -> Matched {
+    (m.1, m.0, m.2.iter().map(|(f, t)| (*t, *f)).collect())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aoc2021::kruskal::min_spanning_tree;
     use std::collections::HashSet;
 
     #[test]
@@ -1324,8 +1318,8 @@ mod tests {
                 ],
             },
         ];
-        let sc = sample_scanners; //scanners();
-        let mut matchings: Vec<(usize, usize, Vec<(usize, usize)>)> = compute_matchings(&sc)
+        let sc = scanners();
+        let mut matchings: Vec<Matched> = compute_matchings(&sc)
             .iter()
             .map(|m| {
                 let beacons = compute_matching_beacons(m);
