@@ -11,6 +11,7 @@ nom = "6.0"
 num = "0.4"
 hex = "0.4"
 itertools = "0.8.0"
+disjoint-sets = "0.4.2"
 
 [[bin]]
 name = "day1"

@@ -11,6 +11,8 @@ use nom::multi::separated_list1;
 use nom::sequence::tuple;
 use nom::Err;
 use nom::IResult;
+use num::FromPrimitive;
+use num::Num;
 use std::fs::read_to_string;
 
 // Wow. that's a type....
@@ -85,12 +87,17 @@ pub fn parse_csv(input: &Vec<&str>) -> Option<Vec<i64>> {
 }
 
 /// Parse a matrix of single-digit numbers
-pub fn parse_digits(lines: &Vec<&str>) -> Option<Vec<Vec<u64>>> {
-    let mut output = vec![];
+pub fn parse_digits<N: Num + FromPrimitive>(lines: &Vec<&str>) -> Option<Vec<Vec<N>>> {
+    let mut output: Vec<Vec<N>> = vec![];
     for line in lines {
-        let mut row = vec![];
-        line.chars()
-            .for_each(|c| row.push((c as u64) - ('0' as u64)));
+        let mut row: Vec<N> = vec![];
+        line.chars().for_each(|c| {
+            row.push(
+                FromPrimitive::from_u16(c as u16).map_or(N::zero(), |cn: N| {
+                    FromPrimitive::from_u16('0' as u16).map_or(N::zero(), |o| cn - o)
+                }),
+            );
+        });
         output.push(row);
     }
     Some(output)
