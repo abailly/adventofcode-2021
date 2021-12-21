@@ -1338,8 +1338,9 @@ mod tests {
 
         // scanners to transform
         let mut to_xform: Vec<usize> = (1..sc.len()).collect();
-
-        for (from, to, mbeacons) in matchings {
+        let ordered_matchings = min_spanning_tree(&matchings);
+        println!("matched {:?}", ordered_matchings);
+        for (from, to, mbeacons) in ordered_matchings {
             let sc_from = transform_scanner(&sc[from], xformed[from]);
             let sc_to = transform_scanner(&sc[to], xformed[to]);
             let (rot, trans) = compute_transform(&sc_from, &sc_to, &mbeacons);
