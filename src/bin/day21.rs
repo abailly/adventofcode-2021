@@ -60,8 +60,8 @@ fn print(v: &Situation) {
     let mut res = String::new();
     for j in 0..v.len() {
         for i in 0..v[0].len() {
-            let (num, (_, s1), (_, s2)) = v[j][i];
-            res.push_str(&format!(" {} ({},{})", num, s1, s2).to_owned());
+            let (num, (p1, s1), (p2, s2)) = v[j][i];
+            res.push_str(&format!(" {} ({} {}) ({} {})", num, p1, s1, p2, s2).to_owned());
         }
         res.push('\n');
     }
@@ -102,6 +102,38 @@ fn mult(
     newstate
 }
 
+fn play_rec(
+    side: u8,
+    p1: u8,
+    s1: u8,
+    p2: u8,
+    s2: u8,
+    outcomes: &Vec<(u64, u8)>,
+    count: u64,
+    s1win: &mut u64,
+    s2win: &mut u64,
+) {
+    for (num, roll) in outcomes {
+        if side == 0 {
+            let pos = (p1 + roll) % 10;
+            let ns1 = s1 + (pos + 1);
+            if ns1 >= 21 {
+                *s1win += count * num;
+            } else {
+                play_rec(1, pos, ns1, p2, s2, outcomes, count * num, s1win, s2win);
+            }
+        } else {
+            let pos = (p2 + roll) % 10;
+            let ns2 = s2 + (pos + 1);
+            if ns2 >= 21 {
+                *s2win += count * num;
+            } else {
+                play_rec(0, p1, s1, pos, ns2, outcomes, count * num, s1win, s2win);
+            }
+        }
+    }
+}
+
 fn initial_state(p1: u8, p2: u8) -> Vec<Vec<(u64, (u8, u8), (u8, u8))>> {
     let mut res = vec![];
     for j in 0..7 {
@@ -129,4 +161,10 @@ fn main() {
         curstate = newstate;
         print(&curstate);
     }
+
+    let mut p1win = 0;
+    let mut p2win = 0;
+    play_rec(0, 5, 0, 6, 0, &probas, 1, &mut p1win, &mut p2win);
+
+    println!("p1win {} p2win {}", p1win, p2win);
 }
