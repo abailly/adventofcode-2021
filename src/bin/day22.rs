@@ -15,6 +15,10 @@ struct Cuboid {
     ub: (i32, i32, i32),
 }
 
+fn size(c: &Cuboid) -> i32 {
+    (c.ub.0 - c.lb.0 + 1) * (c.ub.1 - c.lb.1 + 1) * (c.ub.2 - c.lb.2 + 1)
+}
+
 fn parse_range(s: &str) -> (i32, i32) {
     let cparts: Vec<&str> = s.split("=").collect::<Vec<&str>>()[1].split("..").collect();
 
@@ -65,17 +69,48 @@ fn intersection(a: &Cuboid, b: &Cuboid) -> Option<Cuboid> {
     if !intersect(a, b) {
         return None;
     }
-    None
+    let lb = (a.lb.0.max(b.lb.0), a.lb.1.max(b.lb.1), a.lb.1.max(b.lb.1));
+    let ub = (a.ub.0.min(b.ub.0), a.ub.1.min(b.ub.1), a.ub.1.min(b.ub.1));
+
+    Some(Cuboid { pos: b.pos, lb, ub })
 }
 
-/// Computes the Cuboid cuboids resulting from the intersection of
-/// the two given cuboids
-fn apply_step(prev: Step, a: &Cuboid, b: &Cuboid) -> Step {
-    if !intersect(a, b) {
-        return Step::Step(Box::new(prev), *a, *b, None);
+fn on_cubes(steps: &Vec<&Cuboid>) -> i32 {
+    let mut num_ons = 0;
+    let mut prev = vec![];
+    for cuboid in steps {
+        println!("adding {} {:?}", num_ons, cuboid);
+        let sz = size(cuboid);
+        if cuboid.pos == Pos::On {
+            num_ons += sz;
+            for other in prev.iter() {
+                match intersection(cuboid, other) {
+                    None => (),
+                    Some(c) => {
+                        println!("inter on {} {:?}", num_ons, c);
+                        if other.pos == Pos::On {
+                            num_ons -= size(&c)
+                        }
+                    }
+                }
+            }
+        } else {
+            for other in prev.iter() {
+                match intersection(cuboid, other) {
+                    None => (),
+                    Some(c) => {
+                        println!("inter off {} {:?}", num_ons, c);
+                        if other.pos == Pos::On {
+                            num_ons -= size(&c);
+                        }
+                    }
+                }
+            }
+        }
+        prev.push(**cuboid);
     }
 
-    Step::InitStep
+    num_ons
 }
 
 fn main() {
@@ -122,7 +157,7 @@ mod tests {
     }
 
     #[test]
-    fn can_compute_apply_step_of_2_cuboids_as_a_cuboid() {
+    fn can_compute_intersection_of_2_cuboids_as_a_cuboid() {
         let cuboid1 = Cuboid {
             pos: Pos::On,
             lb: (10, 10, 10),
@@ -142,5 +177,35 @@ mod tests {
         };
 
         assert_eq!(intersection(&cuboid1, &cuboid2), Some(cuboid3));
+    }
+
+    #[test]
+    fn can_compute_number_of_on_cubes_for_a_sequence_of_steps() {
+        let cuboid1 = Cuboid {
+            pos: Pos::On,
+            lb: (10, 10, 10),
+            ub: (12, 12, 12),
+        };
+
+        let cuboid2 = Cuboid {
+            pos: Pos::On,
+            lb: (11, 11, 11),
+            ub: (13, 13, 13),
+        };
+
+        let cuboid3 = Cuboid {
+            pos: Pos::Off,
+            lb: (9, 9, 9),
+            ub: (11, 11, 11),
+        };
+
+        let cuboid4 = Cuboid {
+            pos: Pos::On,
+            lb: (9, 9, 9),
+            ub: (11, 11, 11),
+        };
+
+        let steps = vec![&cuboid1, &cuboid2, &cuboid3, &cuboid4];
+        assert_eq!(on_cubes(&steps), 39);
     }
 }
