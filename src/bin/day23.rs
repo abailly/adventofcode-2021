@@ -548,6 +548,18 @@ fn path_is_free(all_paths: &Vec<Vec<Vec<usize>>>, pos: &Pos, from: usize, to: us
     return true;
 }
 
+// Amphipod can enter its cave iff there's no other amphipod type
+// assumes move is legal, eg. there is a path from where a is to i
+fn can_enter(a: Amphipod, pos: &Pos, i: usize) -> bool {
+    match a {
+        A => i == 12 || pos[12] == a,
+        B => i == 14 || pos[14] == a,
+        C => i == 16 || pos[16] == a,
+        D => i == 18 || pos[18] == a,
+        _ => true,
+    }
+}
+
 fn compute_moves(all_paths: &Vec<Vec<Vec<usize>>>, pos: &Pos) -> Vec<(u64, Pos, u32)> {
     use crate::MoveType::*;
     let mut moves = vec![];
@@ -571,7 +583,7 @@ fn compute_moves(all_paths: &Vec<Vec<Vec<usize>>>, pos: &Pos) -> Vec<(u64, Pos, 
                         }
                     }
                     (In(t), c) => {
-                        if path_is_free(all_paths, pos, i, j) && t == a {
+                        if path_is_free(all_paths, pos, i, j) && t == a && can_enter(a, pos, j) {
                             let mut nm = pos.clone();
                             let a = nm[i];
                             nm[j] = a;
@@ -630,6 +642,7 @@ struct Node {
     val: u32,
     e: u32,
     pos: Pos,
+    prev: Pos,
 }
 
 impl Ord for Node {
@@ -637,7 +650,7 @@ impl Ord for Node {
         other
             .val
             .cmp(&self.val)
-            .then_with(|| self.pos.cmp(&other.pos))
+            .then_with(|| encode(&self.pos).cmp(&encode(&other.pos)))
     }
 }
 
@@ -657,28 +670,51 @@ fn compute_min_steps(
 ) {
     let mut heap = BinaryHeap::new();
     let mut visited = vec![];
+    let mut open: HashMap<u64, u32> = HashMap::new();
     heap.push(Node {
         val: h(cur_pos),
         e: 0,
         pos: *cur_pos,
+        prev: *cur_pos,
     });
-    while let Some(Node { val, e, pos }) = heap.pop() {
+    open.insert(encode(&cur_pos), 0);
+    while let Some(Node { val, e, pos, prev }) = heap.pop() {
         let code = encode(&pos);
         if is_winning(code) {
             *min_e = e;
             return;
         }
         let next_moves = compute_moves(all_paths, &pos);
+        println!(
+            "checking {} {} {} {:?} {}",
+            code,
+            e,
+            val,
+            pos,
+            next_moves.len()
+        );
         for (_, nm, ne) in next_moves {
             let ncode = encode(&nm);
             if !visited.contains(&ncode) {
                 let newe = e + ne;
-                println!("enqueuing {} {} {} {:?}", ncode, newe, h(&nm), nm);
-                heap.push(Node {
+                let node = Node {
                     val: newe + h(&nm),
                     e: newe,
                     pos: nm,
-                });
+                    prev: pos,
+                };
+                match open.get(&ncode) {
+                    None => {
+                        heap.push(node);
+                        open.insert(ncode, newe);
+                    }
+                    Some(olde) => {
+                        if newe < *olde {
+                            heap.push(node);
+                            open.insert(ncode, newe);
+                        }
+                    }
+                }
             }
         }
         visited.push(code);
@@ -687,7 +723,7 @@ fn compute_min_steps(
 
 fn main() {
     let puzzle: [Amphipod; 19] = [X, X, X, X, X, X, X, X, X, X, X, B, A, C, D, B, C, D, A];
-    //    let puzzle: [Amphipod; 19] = [X, X, X, X, X, X, X, X, X, X, X, D, B, D, B, C, A, A, C];
+    //let puzzle: [Amphipod; 19] = [X, X, X, X, X, X, X, X, X, X, X, D, B, D, B, C, A, A, C];
     let _winning: [Amphipod; 19] = [X, X, X, X, X, X, X, X, X, X, X, A, A, B, B, C, C, D, D];
     let paths = compute_all_paths();
     let mut path = vec![];
