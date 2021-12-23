@@ -78,38 +78,32 @@ fn intersection(a: &Cuboid, b: &Cuboid) -> Option<Cuboid> {
 fn on_cubes(steps: &Vec<&Cuboid>) -> i32 {
     let mut num_ons = 0;
     let mut prev = vec![];
-    for cuboid in steps {
-        println!("adding {} {:?}", num_ons, cuboid);
-        let sz = size(cuboid);
-        if cuboid.pos == Pos::On {
-            num_ons += sz;
-            for other in prev.iter() {
-                match intersection(cuboid, other) {
-                    None => (),
-                    Some(c) => {
-                        println!("inter on {} {:?}", num_ons, c);
-                        if other.pos == Pos::On {
-                            num_ons -= size(&c)
-                        }
-                    }
-                }
-            }
-        } else {
-            for other in prev.iter() {
-                match intersection(cuboid, other) {
-                    None => (),
-                    Some(c) => {
-                        println!("inter off {} {:?}", num_ons, c);
-                        if other.pos == Pos::On {
-                            num_ons -= size(&c);
-                        }
-                    }
-                }
-            }
+    // compute all pairs of intersections
+    let mut intersections = vec![];
+    let len = steps.len();
+    for i in 0..len {
+        let mut row = Vec::with_capacity(len);
+        row.resize(len, None);
+        intersections.push(row);
+        for j in i + 1..len {
+            intersections[i][j] = intersection(steps[i], steps[j]);
         }
-        prev.push(**cuboid);
     }
 
+    for i in 0..len {
+        let cube = steps[i];
+        let sz = size(cube);
+        if cube.pos == Pos::On {
+            num_ons += sz;
+            for j in 0..i {
+                match intersections[j][i] {
+                    None => (),
+                    Some(c) => (),
+                }
+                for k in 0..j {}
+            }
+        }
+    }
     num_ons
 }
 
