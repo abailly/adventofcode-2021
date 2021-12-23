@@ -2,6 +2,8 @@ use crate::Amphipod::*;
 use crate::MoveType::*;
 use core::u32::MAX;
 use num::abs;
+use std::cmp::Ordering;
+use std::collections::BinaryHeap;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::env;
@@ -546,11 +548,7 @@ fn path_is_free(all_paths: &Vec<Vec<Vec<usize>>>, pos: &Pos, from: usize, to: us
     return true;
 }
 
-fn compute_moves(
-    all_paths: &Vec<Vec<Vec<usize>>>,
-    pos: &Pos,
-    path: &mut Vec<u64>,
-) -> Vec<(u64, Pos, u32)> {
+fn compute_moves(all_paths: &Vec<Vec<Vec<usize>>>, pos: &Pos) -> Vec<(u64, Pos, u32)> {
     use crate::MoveType::*;
     let mut moves = vec![];
     for i in 0..19 {
@@ -569,9 +567,7 @@ fn compute_moves(
                             nm[j] = a;
                             nm[i] = X;
                             let code = encode(&nm);
-                            if !path.contains(&code) {
-                                moves.push((evaluate(&nm), nm, cost(a) * c as u32));
-                            }
+                            moves.push((evaluate(&nm), nm, cost(a) * c as u32));
                         }
                     }
                     (In(t), c) => {
@@ -581,9 +577,7 @@ fn compute_moves(
                             nm[j] = a;
                             nm[i] = X;
                             let code = encode(&nm);
-                            if !path.contains(&code) {
-                                moves.push((evaluate(&nm), nm, cost(a) * c as u32));
-                            }
+                            moves.push((evaluate(&nm), nm, cost(a) * c as u32));
                         }
                     }
                 }
@@ -617,6 +611,43 @@ fn is_winning(pos: u64) -> bool {
     pos == 101724
 }
 
+/// heuristic function computing minimal distance from given position to
+/// goal
+fn h(pos: &Pos) -> u32 {
+    (0..19).fold(0, |n, i| {
+        n + match pos[i] {
+            X => 0,
+            A => (distances[i][11].min(distances[i][12]) * 1).into(),
+            B => (distances[i][13].min(distances[i][14]) * 10).into(),
+            C => (distances[i][15].min(distances[i][16]) * 100).into(),
+            D => (distances[i][17].min(distances[i][18]) * 1000).into(),
+        }
+    })
+}
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+struct Node {
+    val: u32,
+    e: u32,
+    pos: Pos,
+}
+
+impl Ord for Node {
+    fn cmp(&self, other: &Self) -> Ordering {
+        other
+            .val
+            .cmp(&self.val)
+            .then_with(|| self.pos.cmp(&other.pos))
+    }
+}
+
+// `PartialOrd` needs to be implemented as well.
+impl PartialOrd for Node {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 fn compute_min_steps(
     all_paths: &Vec<Vec<Vec<usize>>>,
     cur_pos: &Pos,
@@ -624,30 +655,34 @@ fn compute_min_steps(
     min_e: &mut u32,
     energy: u32,
 ) {
-    let code = encode(cur_pos);
-    if prev_pos.contains(&code) {
-        return;
-    }
-    if is_winning(code) {
-        if energy < *min_e {
-            *min_e = energy;
+    let mut heap = BinaryHeap::new();
+    let mut visited = vec![];
+    heap.push(Node {
+        val: h(cur_pos),
+        e: 0,
+        pos: *cur_pos,
+    });
+    while let Some(Node { val, e, pos }) = heap.pop() {
+        let code = encode(&pos);
+        if is_winning(code) {
+            *min_e = e;
+            return;
         }
-        return;
+        let next_moves = compute_moves(all_paths, &pos);
+        for (_, nm, ne) in next_moves {
+            let ncode = encode(&nm);
+            if !visited.contains(&ncode) {
+                let newe = e + ne;
+                println!("enqueuing {} {} {} {:?}", ncode, newe, h(&nm), nm);
+                heap.push(Node {
+                    val: newe + h(&nm),
+                    e: newe,
+                    pos: nm,
+                });
+            }
+        }
+        visited.push(code);
     }
-
-    // prune moves
-    if energy > *min_e || energy > 30000 {
-        return;
-    }
-
-    prev_pos.push(code);
-    println!("from {} {} {} {:?} ", code, energy, prev_pos.len(), cur_pos);
-    let mut next_moves = compute_moves(all_paths, cur_pos, prev_pos);
-    next_moves.sort();
-    for (_, m, e) in next_moves {
-        compute_min_steps(all_paths, &m, prev_pos, min_e, energy + e);
-    }
-    prev_pos.pop();
 }
 
 fn main() {
