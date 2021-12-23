@@ -1,12 +1,13 @@
 use crate::Amphipod::*;
 use crate::MoveType::*;
 use core::u32::MAX;
+use num::abs;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::env;
 use std::process;
 
-#[derive(Debug, Clone, PartialEq, Eq, Copy)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Copy)]
 enum Amphipod {
     A,
     B,
@@ -506,10 +507,6 @@ fn compute_path(from: usize, to: usize) -> Vec<usize> {
                 continue;
             }
             let next = n as usize;
-            println!(
-                "path {} {} {} {} {:?} {} {}",
-                from, to, cur, next, res, distances[next][to], distances[cur][to]
-            );
             if distances[next][to] < distances[cur][to] && !res.contains(&next) {
                 res.push(next);
                 cur = next;
@@ -553,7 +550,7 @@ fn compute_moves(
     all_paths: &Vec<Vec<Vec<usize>>>,
     pos: &Pos,
     path: &mut Vec<u64>,
-) -> Vec<(Pos, u32)> {
+) -> Vec<(u64, Pos, u32)> {
     use crate::MoveType::*;
     let mut moves = vec![];
     for i in 0..19 {
@@ -573,7 +570,7 @@ fn compute_moves(
                             nm[i] = X;
                             let code = encode(&nm);
                             if !path.contains(&code) {
-                                moves.push((nm, cost(a) * c as u32));
+                                moves.push((evaluate(&nm), nm, cost(a) * c as u32));
                             }
                         }
                     }
@@ -585,7 +582,7 @@ fn compute_moves(
                             nm[i] = X;
                             let code = encode(&nm);
                             if !path.contains(&code) {
-                                moves.push((nm, cost(a) * c as u32));
+                                moves.push((evaluate(&nm), nm, cost(a) * c as u32));
                             }
                         }
                     }
@@ -612,6 +609,10 @@ fn encode(pos: &Pos) -> u64 {
     code
 }
 
+fn evaluate(pos: &Pos) -> u64 {
+    encode(pos) - 101724
+}
+
 fn is_winning(pos: u64) -> bool {
     pos == 101724
 }
@@ -624,7 +625,9 @@ fn compute_min_steps(
     energy: u32,
 ) {
     let code = encode(cur_pos);
-    println!("from {} {} {} {:?} ", code, energy, prev_pos.len(), cur_pos);
+    if prev_pos.contains(&code) {
+        return;
+    }
     if is_winning(code) {
         if energy < *min_e {
             *min_e = energy;
@@ -633,20 +636,23 @@ fn compute_min_steps(
     }
 
     // prune moves
-    if energy > *min_e {
+    if energy > *min_e || energy > 30000 {
         return;
     }
 
     prev_pos.push(code);
-    let next_moves = compute_moves(all_paths, cur_pos, prev_pos);
-    for (m, e) in next_moves {
+    println!("from {} {} {} {:?} ", code, energy, prev_pos.len(), cur_pos);
+    let mut next_moves = compute_moves(all_paths, cur_pos, prev_pos);
+    next_moves.sort();
+    for (_, m, e) in next_moves {
         compute_min_steps(all_paths, &m, prev_pos, min_e, energy + e);
     }
     prev_pos.pop();
 }
 
 fn main() {
-    let puzzle: [Amphipod; 19] = [X, X, X, X, X, X, X, X, X, X, X, D, B, D, B, C, A, A, C];
+    let puzzle: [Amphipod; 19] = [X, X, X, X, X, X, X, X, X, X, X, B, A, C, D, B, C, D, A];
+    //    let puzzle: [Amphipod; 19] = [X, X, X, X, X, X, X, X, X, X, X, D, B, D, B, C, A, A, C];
     let _winning: [Amphipod; 19] = [X, X, X, X, X, X, X, X, X, X, X, A, A, B, B, C, C, D, D];
     let paths = compute_all_paths();
     let mut path = vec![];
