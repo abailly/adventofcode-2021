@@ -664,7 +664,7 @@ impl PartialOrd for Node {
 fn compute_min_steps(
     all_paths: &Vec<Vec<Vec<usize>>>,
     cur_pos: &Pos,
-    prev_pos: &mut Vec<u64>,
+    path: &mut Vec<Pos>,
     min_e: &mut u32,
     energy: u32,
 ) {
@@ -722,8 +722,8 @@ fn compute_min_steps(
 }
 
 fn main() {
-    let puzzle: [Amphipod; 19] = [X, X, X, X, X, X, X, X, X, X, X, B, A, C, D, B, C, D, A];
-    //let puzzle: [Amphipod; 19] = [X, X, X, X, X, X, X, X, X, X, X, D, B, D, B, C, A, A, C];
+    //let puzzle: [Amphipod; 19] = [X, X, X, X, X, X, X, X, X, X, X, B, A, C, D, B, C, D, A];
+    let puzzle: [Amphipod; 19] = [X, X, X, X, X, X, X, X, X, X, X, D, C, B, A, D, A, B, C];
     let _winning: [Amphipod; 19] = [X, X, X, X, X, X, X, X, X, X, X, A, A, B, B, C, C, D, D];
     let paths = compute_all_paths();
     let mut path = vec![];
