@@ -1,6 +1,8 @@
 use crate::Addr::*;
 use crate::Inst::*;
 use crate::Operand::*;
+use crate::AST::*;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ALU {
@@ -11,29 +13,93 @@ struct ALU {
     input: Vec<u8>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Copy)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Copy)]
 enum Addr {
     X,
     Y,
     Z,
     W,
+    I(usize), // input index
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Copy)]
 enum Operand {
     A(Addr),
     V(i64),
-    I(usize), // input index
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Copy)]
 enum Inst {
-    Inp(Addr, Operand),
+    Inp(Addr, Addr),
     Add(Addr, Operand),
     Mul(Addr, Operand),
     Div(Addr, Operand),
     Mod(Addr, Operand),
     Eql(Addr, Operand),
+}
+
+// a tree of operations leading to some result
+enum AST {
+    Node(Addr, Op, Box<AST>, Box<AST>),
+    In(Addr, Box<AST>),
+    Leaf(Operand),
+}
+
+enum Op {
+    Ad,
+    Mu,
+    Di,
+    Mo,
+    Eq,
+}
+
+fn make_tree(prog: &Vec<Inst>) -> AST {
+    // map addresses to latest AST
+    let mut reg_map: HashMap<Addr, AST> = HashMap::new();
+
+    let make_src = fn(from: Operand) -> Box<AST> {
+        match from {
+            V
+        if let Some(ast) = reg_map.get(from) {
+                    Box::new(*ast)
+                } else {
+                    Box::new(Leaf(A(*from)))
+    }
+    };
+
+    for i in prog {
+        match i {
+            Inp(addr, from) => {
+                let src = make_src(from);
+                reg_map.insert(*addr, In(*addr, src));
+            }
+            Add(addr, opr) => {
+                let a = read(&new_alu, addr);
+                let b = decode(&new_alu, opr);
+                write(&mut new_alu, addr, a + b);
+            }
+            Mul(addr, opr) => {
+                let a = read(&new_alu, addr);
+                let b = decode(&new_alu, opr);
+                write(&mut new_alu, addr, a * b);
+            }
+            Div(addr, opr) => {
+                let a = read(&new_alu, addr);
+                let b = decode(&new_alu, opr);
+                write(&mut new_alu, addr, a / b);
+            }
+            Mod(addr, opr) => {
+                let a = read(&new_alu, addr);
+                let b = decode(&new_alu, opr);
+                write(&mut new_alu, addr, a % b);
+            }
+            Eql(addr, opr) => {
+                let a = read(&new_alu, addr);
+                let b = decode(&new_alu, opr);
+                write(&mut new_alu, addr, if a == b { 1 } else { 0 });
+            }
+        }
+    }
 }
 
 fn read(alu: &ALU, addr: &Addr) -> i64 {
@@ -365,12 +431,6 @@ static PROGRAM: [Inst; 252] = [
     Mul(Y, A(X)),   // Y = Y * X
     Add(Z, A(Y)),   // Z = Z + Y
 ];
-
-// fn make_tree(prog: &Vec<Inst>) -> AST {
-//     // map registers to some AST
-//     let mut reg_map = HashMap::new();
-//     for i in prog {}
-// }
 
 fn main() {
     let init = ALU {
