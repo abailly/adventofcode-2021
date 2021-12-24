@@ -191,7 +191,7 @@ static legal_moves: [[(MoveType, u32); 27]; 27] = [
         (In(D), 8),
     ],
     [
-        (F, 6),
+        (F, 5),
         (F, 4),
         (F, 3),
         (F, 2),
@@ -220,8 +220,8 @@ static legal_moves: [[(MoveType, u32); 27]; 27] = [
         (In(D), 7),
     ],
     [
-        (F, 7),
         (F, 6),
+        (F, 5),
         (F, 4),
         (F, 3),
         (F, 2),
@@ -249,9 +249,9 @@ static legal_moves: [[(MoveType, u32); 27]; 27] = [
         (In(D), 6),
     ],
     [
-        (F, 8),
         (F, 7),
         (F, 6),
+        (F, 5),
         (F, 4),
         (F, 3),
         (F, 2),
@@ -278,10 +278,10 @@ static legal_moves: [[(MoveType, u32); 27]; 27] = [
         (In(D), 5),
     ],
     [
-        (F, 9),
         (F, 8),
         (F, 7),
         (F, 6),
+        (F, 5),
         (F, 4),
         (F, 3),
         (F, 2),
@@ -307,11 +307,11 @@ static legal_moves: [[(MoveType, u32); 27]; 27] = [
         (In(D), 4),
     ],
     [
-        (F, 10),
         (F, 9),
         (F, 8),
         (F, 7),
         (F, 6),
+        (F, 5),
         (F, 4),
         (F, 3),
         (F, 2),
@@ -336,12 +336,12 @@ static legal_moves: [[(MoveType, u32); 27]; 27] = [
         (In(D), 5),
     ],
     [
-        (F, 11),
         (F, 10),
         (F, 9),
         (F, 8),
         (F, 7),
         (F, 6),
+        (F, 5),
         (F, 4),
         (F, 3),
         (F, 2),
@@ -838,11 +838,11 @@ static legal_step: [[i32; 3]; 27] = [
     [0, 2, -1],
     [1, 3, 11],
     [2, 4, -1],
-    [3, 5, 13],
+    [3, 5, 15],
     [4, 6, -1],
-    [5, 7, 15],
+    [5, 7, 19],
     [6, 8, -1],
-    [7, 9, 17],
+    [7, 9, 23],
     [8, 10, -1],
     [9, -1, -1],
     [2, 12, -1],
@@ -870,6 +870,7 @@ fn distance(from: usize, to: usize) -> u32 {
 fn compute_path(from: usize, to: usize) -> Vec<usize> {
     let mut res = vec![];
     let mut cur = from;
+    println!("compute path {} {}", from, to);
     while cur != to {
         for n in legal_step[cur] {
             if n == -1 {
@@ -919,10 +920,10 @@ fn path_is_free(all_paths: &Vec<Vec<Vec<usize>>>, pos: &Pos, from: usize, to: us
 // assumes move is legal, eg. there is a path from where a is to i
 fn can_enter(a: Amphipod, pos: &Pos, i: usize) -> bool {
     match a {
-        A => i == 12 || pos[12] == a,
-        B => i == 14 || pos[14] == a,
-        C => i == 16 || pos[16] == a,
-        D => i == 18 || pos[18] == a,
+        A => (11..15).fold(true, |r, j| (pos[j] == A || pos[j] == X) && r),
+        B => (15..19).fold(true, |r, j| (pos[j] == B || pos[j] == X) && r),
+        C => (19..23).fold(true, |r, j| (pos[j] == C || pos[j] == X) && r),
+        D => (23..27).fold(true, |r, j| (pos[j] == D || pos[j] == X) && r),
         _ => true,
     }
 }
@@ -945,7 +946,6 @@ fn compute_moves(all_paths: &Vec<Vec<Vec<usize>>>, pos: &Pos) -> Vec<(Pos, u32)>
                             let a = nm[i];
                             nm[j] = a;
                             nm[i] = X;
-                            let code = encode(&nm);
                             moves.push((nm, cost(a) * c as u32));
                         }
                     }
@@ -955,7 +955,6 @@ fn compute_moves(all_paths: &Vec<Vec<Vec<usize>>>, pos: &Pos) -> Vec<(Pos, u32)>
                             let a = nm[i];
                             nm[j] = a;
                             nm[i] = X;
-                            let code = encode(&nm);
                             moves.push((nm, cost(a) * c as u32));
                         }
                     }
@@ -996,10 +995,10 @@ fn h(pos: &Pos) -> u32 {
     (0..27).fold(0, |n, i| {
         n + match pos[i] {
             X => 0,
-            A => (distance(i, 11).min(distance(i, 12)) * 1).into(),
-            B => (distance(i, 13).min(distance(i, 14)) * 10).into(),
-            C => (distance(i, 15).min(distance(i, 16)) * 100).into(),
-            D => (distance(i, 17).min(distance(i, 18)) * 1000).into(),
+            A => (distance(i, 11).min(distance(i, 14)) * 1).into(),
+            B => (distance(i, 15).min(distance(i, 18)) * 10).into(),
+            C => (distance(i, 19).min(distance(i, 22)) * 100).into(),
+            D => (distance(i, 23).min(distance(i, 26)) * 1000).into(),
         }
     })
 }
