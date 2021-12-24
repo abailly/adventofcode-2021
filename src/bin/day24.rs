@@ -1,12 +1,6 @@
 use crate::Addr::*;
 use crate::Inst::*;
 use crate::Operand::*;
-use std::cmp::Ordering;
-use std::collections::BinaryHeap;
-use std::collections::HashMap;
-use std::convert::TryInto;
-use std::env;
-use std::process;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ALU {
@@ -29,11 +23,12 @@ enum Addr {
 enum Operand {
     A(Addr),
     V(i64),
+    I(usize), // input index
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Copy)]
 enum Inst {
-    Inp(Addr),
+    Inp(Addr, Operand),
     Add(Addr, Operand),
     Mul(Addr, Operand),
     Div(Addr, Operand),
@@ -54,6 +49,7 @@ fn decode(alu: &ALU, op: &Operand) -> i64 {
     match op {
         A(addr) => read(alu, addr),
         V(v) => *v,
+        I(i) => alu.input[*i].into(),
     }
 }
 
@@ -77,9 +73,10 @@ fn write(alu: &mut ALU, addr: &Addr, val: i64) {
 fn process(alu: &ALU, inst: &Inst) -> ALU {
     let mut new_alu = alu.clone();
     match inst {
-        Inp(addr) => {
-            let v = new_alu.input.pop().unwrap();
-            write(&mut new_alu, addr, v.into());
+        Inp(addr, opr) => {
+            let b = decode(&new_alu, opr);
+            write(&mut new_alu, addr, b);
+            println!("{:?}", new_alu);
         }
         Add(addr, opr) => {
             let a = read(&new_alu, addr);
@@ -114,8 +111,8 @@ fn compute_result(prog: &Vec<Inst>, start: ALU) -> ALU {
     prog.iter().fold(start, |alu, inst| process(&alu, inst))
 }
 
-static program: [Inst; 252] = [
-    Inp(W),
+static PROGRAM: [Inst; 252] = [
+    Inp(W, I(0)),
     Mul(X, V(0)),
     Add(X, A(Z)),
     Mod(X, V(26)),
@@ -133,7 +130,7 @@ static program: [Inst; 252] = [
     Add(Y, V(6)),
     Mul(Y, A(X)),
     Add(Z, A(Y)),
-    Inp(W),
+    Inp(W, I(1)),
     Mul(X, V(0)),
     Add(X, A(Z)),
     Mod(X, V(26)),
@@ -151,7 +148,7 @@ static program: [Inst; 252] = [
     Add(Y, V(6)),
     Mul(Y, A(X)),
     Add(Z, A(Y)),
-    Inp(W),
+    Inp(W, I(2)),
     Mul(X, V(0)),
     Add(X, A(Z)),
     Mod(X, V(26)),
@@ -169,7 +166,7 @@ static program: [Inst; 252] = [
     Add(Y, V(3)),
     Mul(Y, A(X)),
     Add(Z, A(Y)),
-    Inp(W),
+    Inp(W, I(3)),
     Mul(X, V(0)),
     Add(X, A(Z)),
     Mod(X, V(26)),
@@ -187,7 +184,7 @@ static program: [Inst; 252] = [
     Add(Y, V(11)),
     Mul(Y, A(X)),
     Add(Z, A(Y)),
-    Inp(W),
+    Inp(W, I(4)),
     Mul(X, V(0)),
     Add(X, A(Z)),
     Mod(X, V(26)),
@@ -205,7 +202,7 @@ static program: [Inst; 252] = [
     Add(Y, V(9)),
     Mul(Y, A(X)),
     Add(Z, A(Y)),
-    Inp(W),
+    Inp(W, I(5)),
     Mul(X, V(0)),
     Add(X, A(Z)),
     Mod(X, V(26)),
@@ -223,7 +220,7 @@ static program: [Inst; 252] = [
     Add(Y, V(3)),
     Mul(Y, A(X)),
     Add(Z, A(Y)),
-    Inp(W),
+    Inp(W, I(6)),
     Mul(X, V(0)),
     Add(X, A(Z)),
     Mod(X, V(26)),
@@ -241,7 +238,7 @@ static program: [Inst; 252] = [
     Add(Y, V(13)),
     Mul(Y, A(X)),
     Add(Z, A(Y)),
-    Inp(W),
+    Inp(W, I(7)),
     Mul(X, V(0)),
     Add(X, A(Z)),
     Mod(X, V(26)),
@@ -259,7 +256,7 @@ static program: [Inst; 252] = [
     Add(Y, V(6)),
     Mul(Y, A(X)),
     Add(Z, A(Y)),
-    Inp(W),
+    Inp(W, I(8)),
     Mul(X, V(0)),
     Add(X, A(Z)),
     Mod(X, V(26)),
@@ -277,7 +274,7 @@ static program: [Inst; 252] = [
     Add(Y, V(14)),
     Mul(Y, A(X)),
     Add(Z, A(Y)),
-    Inp(W),
+    Inp(W, I(9)),
     Mul(X, V(0)),
     Add(X, A(Z)),
     Mod(X, V(26)),
@@ -295,7 +292,7 @@ static program: [Inst; 252] = [
     Add(Y, V(10)),
     Mul(Y, A(X)),
     Add(Z, A(Y)),
-    Inp(W),
+    Inp(W, I(10)),
     Mul(X, V(0)),
     Add(X, A(Z)),
     Mod(X, V(26)),
@@ -313,7 +310,7 @@ static program: [Inst; 252] = [
     Add(Y, V(12)),
     Mul(Y, A(X)),
     Add(Z, A(Y)),
-    Inp(W),
+    Inp(W, I(11)),
     Mul(X, V(0)),
     Add(X, A(Z)),
     Mod(X, V(26)),
@@ -331,7 +328,7 @@ static program: [Inst; 252] = [
     Add(Y, V(10)),
     Mul(Y, A(X)),
     Add(Z, A(Y)),
-    Inp(W),
+    Inp(W, I(12)),
     Mul(X, V(0)),
     Add(X, A(Z)),
     Mod(X, V(26)),
@@ -349,25 +346,31 @@ static program: [Inst; 252] = [
     Add(Y, V(11)),
     Mul(Y, A(X)),
     Add(Z, A(Y)),
-    Inp(W),
-    Mul(X, V(0)),
-    Add(X, A(Z)),
-    Mod(X, V(26)),
-    Div(Z, V(26)),
-    Add(X, V(-11)),
-    Eql(X, A(W)),
-    Eql(X, V(0)),
-    Mul(Y, V(0)),
-    Add(Y, V(25)),
-    Mul(Y, A(X)),
-    Add(Y, V(1)),
-    Mul(Z, A(Y)),
-    Mul(Y, V(0)),
-    Add(Y, A(W)),
-    Add(Y, V(15)),
-    Mul(Y, A(X)),
-    Add(Z, A(Y)),
+    Inp(W, I(13)),  // W = ?
+    Mul(X, V(0)),   // X = X * 0
+    Add(X, A(Z)),   // X = X + Z
+    Mod(X, V(26)),  // X = X + 26
+    Div(Z, V(26)),  // Z = Z / 26
+    Add(X, V(-11)), // X = X - 11
+    Eql(X, A(W)),   // X = if X == W then 1 else 0
+    Eql(X, V(0)),   // X = if X == 0 then 1 else 0
+    Mul(Y, V(0)),   // Y = Y * 0
+    Add(Y, V(25)),  // Y = Y + 25
+    Mul(Y, A(X)),   // Y = Y * X
+    Add(Y, V(1)),   // Y = Y + 1
+    Mul(Z, A(Y)),   // Z = Z + Y
+    Mul(Y, V(0)),   // Y = Y * 0
+    Add(Y, A(W)),   // Y = Y + W
+    Add(Y, V(15)),  // Y = Y + 15
+    Mul(Y, A(X)),   // Y = Y * X
+    Add(Z, A(Y)),   // Z = Z + Y
 ];
+
+// fn make_tree(prog: &Vec<Inst>) -> AST {
+//     // map registers to some AST
+//     let mut reg_map = HashMap::new();
+//     for i in prog {}
+// }
 
 fn main() {
     let init = ALU {
@@ -375,8 +378,8 @@ fn main() {
         y: 0,
         z: 0,
         w: 0,
-        input: [9; 14].to_vec(),
+        input: vec![1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
     };
-    let res = compute_result(&program.to_vec(), init);
+    let res = compute_result(&PROGRAM.to_vec(), init);
     println!("min energy: {:?}", res);
 }
