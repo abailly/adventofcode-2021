@@ -928,6 +928,38 @@ fn can_enter(a: Amphipod, pos: &Pos, i: usize) -> bool {
     }
 }
 
+/// Remove uninteresing moves
+fn prune_moves(moves: &Vec<(Pos, u32, usize, usize)>) -> Vec<(Pos, u32)> {
+    let mut res = vec![];
+    for (m, c, from, to) in moves {
+        let dest = *to;
+        // move as far left as possible
+        if dest == 1 && m[0] == X {
+            continue;
+        }
+        // move as far right as possible
+        if dest == 9 && m[10] == X {
+            continue;
+        }
+
+        // move as far in a cave as possible
+        if dest >= 11 && dest < 14 && m[dest + 1] == X {
+            continue;
+        }
+        if dest >= 15 && dest < 18 && m[dest + 1] == X {
+            continue;
+        }
+        if dest >= 19 && dest < 22 && m[dest + 1] == X {
+            continue;
+        }
+        if dest >= 23 && dest < 26 && m[dest + 1] == X {
+            continue;
+        }
+        res.push((*m, *c));
+    }
+    res
+}
+
 fn compute_moves(all_paths: &Vec<Vec<Vec<usize>>>, pos: &Pos) -> Vec<(Pos, u32)> {
     use crate::MoveType::*;
     let mut moves = vec![];
@@ -946,7 +978,7 @@ fn compute_moves(all_paths: &Vec<Vec<Vec<usize>>>, pos: &Pos) -> Vec<(Pos, u32)>
                             let a = nm[i];
                             nm[j] = a;
                             nm[i] = X;
-                            moves.push((nm, cost(a) * c as u32));
+                            moves.push((nm, cost(a) * c as u32, i, j));
                         }
                     }
                     (In(t), c) => {
@@ -955,14 +987,14 @@ fn compute_moves(all_paths: &Vec<Vec<Vec<usize>>>, pos: &Pos) -> Vec<(Pos, u32)>
                             let a = nm[i];
                             nm[j] = a;
                             nm[i] = X;
-                            moves.push((nm, cost(a) * c as u32));
+                            moves.push((nm, cost(a) * c as u32, i, j));
                         }
                     }
                 }
             }
         }
     }
-    moves
+    prune_moves(&moves)
 }
 
 /// encode current position in base 5
@@ -995,10 +1027,34 @@ fn h(pos: &Pos) -> u32 {
     (0..27).fold(0, |n, i| {
         n + match pos[i] {
             X => 0,
-            A => (distance(i, 11).min(distance(i, 14)) * 1).into(),
-            B => (distance(i, 15).min(distance(i, 18)) * 10).into(),
-            C => (distance(i, 19).min(distance(i, 22)) * 100).into(),
-            D => (distance(i, 23).min(distance(i, 26)) * 1000).into(),
+            A => {
+                if i >= 11 && i < 15 {
+                    0
+                } else {
+                    (distance(i, 11).min(distance(i, 14)) * 1).into()
+                }
+            }
+            B => {
+                if i >= 15 && i < 19 {
+                    0
+                } else {
+                    (distance(i, 15).min(distance(i, 18)) * 10).into()
+                }
+            }
+            C => {
+                if i >= 19 && i < 23 {
+                    0
+                } else {
+                    (distance(i, 19).min(distance(i, 22)) * 100).into()
+                }
+            }
+            D => {
+                if i >= 23 && i < 27 {
+                    0
+                } else {
+                    (distance(i, 23).min(distance(i, 26)) * 1000).into()
+                }
+            }
         }
     })
 }
