@@ -154,6 +154,19 @@ fn upper_bound(a: &AST) -> i64 {
     }
 }
 
+fn lower_bound(a: &AST) -> i64 {
+    match a {
+        Node(Ad, x, y) => lower_bound(x) + lower_bound(y),
+        Node(Mu, x, y) => lower_bound(x) * lower_bound(y),
+        Node(Di, _, _) => 0,
+        Node(Mo, _, _) => 0,
+        Node(Eq, _, _) => 0,
+        Leaf(I(_)) => 1,
+        Leaf(V(x)) => *x,
+        _ => MAX,
+    }
+}
+
 fn mknode(op: Op, a: &AST, b: &AST) -> AST {
     match op {
         Mu => match (a, b) {
@@ -161,6 +174,16 @@ fn mknode(op: Op, a: &AST, b: &AST) -> AST {
             (_, Leaf(V(0))) => Leaf(V(0)),
             (Leaf(V(1)), _) => b.clone(),
             (_, Leaf(V(1))) => a.clone(),
+
+            // commutativity
+            (Leaf(V(z)), Node(Mu, y, x)) => match **x {
+                Leaf(V(t)) => Node(Mu, y.clone(), Box::new(Leaf(V(z * t)))),
+                _ => Node(Mu, Box::new(a.clone()), Box::new(b.clone())),
+            },
+            (Node(Mu, y, x), Leaf(V(z))) => match **x {
+                Leaf(V(t)) => Node(Mu, y.clone(), Box::new(Leaf(V(z * t)))),
+                _ => Node(Mu, Box::new(a.clone()), Box::new(b.clone())),
+            },
             (Leaf(V(x)), Leaf(V(y))) => Leaf(V(x * y)),
             _ => Node(Mu, Box::new(a.clone()), Box::new(b.clone())),
         },
@@ -168,6 +191,19 @@ fn mknode(op: Op, a: &AST, b: &AST) -> AST {
             (Leaf(V(0)), _) => b.clone(),
             (_, Leaf(V(0))) => a.clone(),
             (Leaf(V(x)), Leaf(V(y))) => Leaf(V(x + y)),
+            (Leaf(V(z)), Node(Ad, y, x)) => {
+                if let Leaf(V(t)) = **x {
+                    Node(Ad, y.clone(), Box::new(Leaf(V(z + t))))
+                } else if let Leaf(V(t)) = **y {
+                    Node(Ad, x.clone(), Box::new(Leaf(V(z + t))))
+                } else {
+                    Node(Ad, Box::new(a.clone()), Box::new(b.clone()))
+                }
+            }
+            (Node(Ad, y, x), Leaf(V(z))) => match **x {
+                Leaf(V(t)) => Node(Ad, y.clone(), Box::new(Leaf(V(z + t)))),
+                _ => Node(Ad, Box::new(a.clone()), Box::new(b.clone())),
+            },
             _ => Node(Ad, Box::new(a.clone()), Box::new(b.clone())),
         },
         Di => match (a, b) {
@@ -188,28 +224,13 @@ fn mknode(op: Op, a: &AST, b: &AST) -> AST {
                     Leaf(V(0))
                 }
             }
-            (Node(Eq, _, _), Leaf(V(y))) => {
-                if *y != 1 && *y != 0 {
+            _ => {
+                if lower_bound(a) > upper_bound(b) || upper_bound(a) < lower_bound(b) {
                     Leaf(V(0))
                 } else {
                     Node(Eq, Box::new(a.clone()), Box::new(b.clone()))
                 }
             }
-            (Leaf(I(_)), Leaf(V(y))) => {
-                if *y > 9 || *y < 1 {
-                    Leaf(V(0))
-                } else {
-                    Node(Eq, Box::new(a.clone()), Box::new(b.clone()))
-                }
-            }
-            (Leaf(V(y)), Leaf(I(_))) => {
-                if *y > 9 || *y < 1 {
-                    Leaf(V(0))
-                } else {
-                    Node(Eq, Box::new(a.clone()), Box::new(b.clone()))
-                }
-            }
-            _ => Node(Eq, Box::new(a.clone()), Box::new(b.clone())),
         },
     }
 }
