@@ -1,8 +1,10 @@
 use crate::Addr::*;
 use crate::Inst::*;
+use crate::Op::*;
 use crate::Operand::*;
 use crate::AST::*;
 use std::collections::HashMap;
+use std::env;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ALU {
@@ -42,7 +44,6 @@ enum Inst {
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum AST {
     Node(Op, Box<AST>, Box<AST>),
-    In(Box<AST>),
     Leaf(Operand),
 }
 
@@ -63,8 +64,111 @@ struct AbsALU {
     w: AST,
 }
 
+fn abs_read(alu: &AbsALU, addr: Addr) -> AST {
+    match addr {
+        X => alu.x.clone(),
+        Y => alu.y.clone(),
+        Z => alu.z.clone(),
+        W => alu.w.clone(),
+    }
+}
+
+fn abs_decode(alu: &AbsALU, op: &Operand) -> AST {
+    match op {
+        A(addr) => abs_read(alu, *addr),
+        o => Leaf(*o),
+    }
+}
+
+fn abs_write(alu: &mut AbsALU, addr: Addr, op: AST) {
+    match addr {
+        X => {
+            alu.x = op;
+        }
+        Y => {
+            alu.y = op;
+        }
+        Z => {
+            alu.z = op;
+        }
+        W => {
+            alu.w = op;
+        }
+    }
+}
+
+fn mknode(op: Op, a: &AST, b: &AST) -> AST {
+    match op {
+        Mu => match (a, b) {
+            (Leaf(V(0)), _) => Leaf(V(0)),
+            (_, Leaf(V(0))) => Leaf(V(0)),
+            (Leaf(V(1)), _) => b.clone(),
+            (_, Leaf(V(1))) => a.clone(),
+            (Leaf(V(x)), Leaf(V(y))) => Leaf(V(x * y)),
+            _ => Node(Mu, Box::new(a.clone()), Box::new(b.clone())),
+        },
+        Ad => match (a, b) {
+            (Leaf(V(0)), _) => b.clone(),
+            (_, Leaf(V(0))) => a.clone(),
+            (Leaf(V(x)), Leaf(V(y))) => Leaf(V(x + y)),
+            _ => Node(Ad, Box::new(a.clone()), Box::new(b.clone())),
+        },
+        Di => match (a, b) {
+            (_, Leaf(V(1))) => a.clone(),
+            (Leaf(V(x)), Leaf(V(y))) => Leaf(V(x / y)),
+            _ => Node(Di, Box::new(a.clone()), Box::new(b.clone())),
+        },
+        Mo => match (a, b) {
+            (Leaf(V(x)), Leaf(V(y))) => Leaf(V(x % y)),
+            _ => Node(Mo, Box::new(a.clone()), Box::new(b.clone())),
+        },
+        Eq => match (a, b) {
+            (Leaf(V(x)), Leaf(V(y))) => {
+                if x == y {
+                    Leaf(V(1))
+                } else {
+                    Leaf(V(0))
+                }
+            }
+            _ => Node(Eq, Box::new(a.clone()), Box::new(b.clone())),
+        },
+    }
+}
+
 fn abstract_process(alu: &AbsALU, inst: Inst) -> AbsALU {
-    alu.clone()
+    let mut new_alu = alu.clone();
+    match inst {
+        Inp(addr, opr) => {
+            let a = abs_decode(&new_alu, &opr);
+            abs_write(&mut new_alu, addr, a);
+        }
+        Add(addr, opr) => {
+            let a = abs_read(&new_alu, addr);
+            let b = abs_decode(&new_alu, &opr);
+            abs_write(&mut new_alu, addr, mknode(Ad, &a, &b));
+        }
+        Mul(addr, opr) => {
+            let a = abs_read(&new_alu, addr);
+            let b = abs_decode(&new_alu, &opr);
+            abs_write(&mut new_alu, addr, mknode(Mu, &a, &b));
+        }
+        Div(addr, opr) => {
+            let a = abs_read(&new_alu, addr);
+            let b = abs_decode(&new_alu, &opr);
+            abs_write(&mut new_alu, addr, mknode(Di, &a, &b));
+        }
+        Mod(addr, opr) => {
+            let a = abs_read(&new_alu, addr);
+            let b = abs_decode(&new_alu, &opr);
+            abs_write(&mut new_alu, addr, mknode(Mo, &a, &b));
+        }
+        Eql(addr, opr) => {
+            let a = abs_read(&new_alu, addr);
+            let b = abs_decode(&new_alu, &opr);
+            abs_write(&mut new_alu, addr, mknode(Eq, &a, &b));
+        }
+    }
+    new_alu
 }
 
 fn abstract_interpret(prog: &Vec<Inst>, start: &AbsALU) -> AbsALU {
@@ -112,7 +216,6 @@ fn process(alu: &ALU, inst: &Inst) -> ALU {
         Inp(addr, opr) => {
             let b = decode(&new_alu, opr);
             write(&mut new_alu, addr, b);
-            println!("{:?}", new_alu);
         }
         Add(addr, opr) => {
             let a = read(&new_alu, addr);
@@ -403,13 +506,15 @@ static PROGRAM: [Inst; 252] = [
 ];
 
 fn main() {
-    let init = ALU {
-        x: 0,
-        y: 0,
-        z: 0,
-        w: 0,
-        input: vec![1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
+    let init = AbsALU {
+        x: Leaf(V(0)),
+        y: Leaf(V(0)),
+        z: Leaf(V(0)),
+        w: Leaf(V(0)),
     };
-    let res = compute_result(&PROGRAM.to_vec(), init);
+    let args: Vec<String> = env::args().collect();
+
+    let num = args[1].parse::<usize>().unwrap();
+    let res = abstract_interpret(&PROGRAM[0..num].to_vec(), &init);
     println!("min energy: {:?}", res);
 }
