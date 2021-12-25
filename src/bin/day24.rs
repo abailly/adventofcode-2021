@@ -3,8 +3,11 @@ use crate::Inst::*;
 use crate::Op::*;
 use crate::Operand::*;
 use crate::AST::*;
+use core::i64::MAX;
 use std::collections::HashMap;
 use std::env;
+use std::fmt;
+use std::fmt::Display;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ALU {
@@ -64,6 +67,47 @@ struct AbsALU {
     w: AST,
 }
 
+impl Display for Op {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Ad => write!(f, "+"),
+            Mu => write!(f, "*"),
+            Di => write!(f, "/"),
+            Mo => write!(f, "%"),
+            Eq => write!(f, "=="),
+        }
+    }
+}
+
+impl Display for Operand {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            A(addr) => write!(f, "{:?}", addr),
+            V(n) => write!(f, "{}", n),
+            I(i) => write!(f, "[{}]", i),
+        }
+    }
+}
+
+impl Display for AST {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Node(op, l, r) => write!(f, "({} {} {})", op, l, r),
+            Leaf(op) => write!(f, "{}", op),
+        }
+    }
+}
+
+impl Display for AbsALU {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "x = {}\ny = {}\nz= {}\nw= {}",
+            self.x, self.y, self.z, self.w
+        )
+    }
+}
+
 fn abs_read(alu: &AbsALU, addr: Addr) -> AST {
     match addr {
         X => alu.x.clone(),
@@ -97,6 +141,19 @@ fn abs_write(alu: &mut AbsALU, addr: Addr, op: AST) {
     }
 }
 
+fn upper_bound(a: &AST) -> i64 {
+    match a {
+        Node(Ad, x, y) => upper_bound(x) + upper_bound(y),
+        Node(Mu, x, y) => upper_bound(x) * upper_bound(y),
+        Node(Di, x, _y) => upper_bound(x),
+        Node(Mo, _x, y) => upper_bound(y),
+        Node(Eq, _, _) => 1,
+        Leaf(I(_)) => 9,
+        Leaf(V(x)) => *x,
+        _ => MAX,
+    }
+}
+
 fn mknode(op: Op, a: &AST, b: &AST) -> AST {
     match op {
         Mu => match (a, b) {
@@ -120,6 +177,7 @@ fn mknode(op: Op, a: &AST, b: &AST) -> AST {
         },
         Mo => match (a, b) {
             (Leaf(V(x)), Leaf(V(y))) => Leaf(V(x % y)),
+            (_, Leaf(V(y))) if upper_bound(a) < *y => a.clone(),
             _ => Node(Mo, Box::new(a.clone()), Box::new(b.clone())),
         },
         Eq => match (a, b) {
@@ -128,6 +186,27 @@ fn mknode(op: Op, a: &AST, b: &AST) -> AST {
                     Leaf(V(1))
                 } else {
                     Leaf(V(0))
+                }
+            }
+            (Node(Eq, _, _), Leaf(V(y))) => {
+                if *y != 1 && *y != 0 {
+                    Leaf(V(0))
+                } else {
+                    Node(Eq, Box::new(a.clone()), Box::new(b.clone()))
+                }
+            }
+            (Leaf(I(_)), Leaf(V(y))) => {
+                if *y > 9 || *y < 1 {
+                    Leaf(V(0))
+                } else {
+                    Node(Eq, Box::new(a.clone()), Box::new(b.clone()))
+                }
+            }
+            (Leaf(V(y)), Leaf(I(_))) => {
+                if *y > 9 || *y < 1 {
+                    Leaf(V(0))
+                } else {
+                    Node(Eq, Box::new(a.clone()), Box::new(b.clone()))
                 }
             }
             _ => Node(Eq, Box::new(a.clone()), Box::new(b.clone())),
@@ -516,5 +595,5 @@ fn main() {
 
     let num = args[1].parse::<usize>().unwrap();
     let res = abstract_interpret(&PROGRAM[0..num].to_vec(), &init);
-    println!("min energy: {:?}", res);
+    println!("min energy: {}", res);
 }
