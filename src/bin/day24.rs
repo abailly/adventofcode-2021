@@ -19,18 +19,18 @@ enum Addr {
     Y,
     Z,
     W,
-    I(usize), // input index
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Copy)]
 enum Operand {
     A(Addr),
     V(i64),
+    I(usize), // input index
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Copy)]
 enum Inst {
-    Inp(Addr, Addr),
+    Inp(Addr, Operand),
     Add(Addr, Operand),
     Mul(Addr, Operand),
     Div(Addr, Operand),
@@ -39,12 +39,14 @@ enum Inst {
 }
 
 // a tree of operations leading to some result
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum AST {
-    Node(Addr, Op, Box<AST>, Box<AST>),
-    In(Addr, Box<AST>),
+    Node(Op, Box<AST>, Box<AST>),
+    In(Box<AST>),
     Leaf(Operand),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum Op {
     Ad,
     Mu,
@@ -53,53 +55,21 @@ enum Op {
     Eq,
 }
 
-fn make_tree(prog: &Vec<Inst>) -> AST {
-    // map addresses to latest AST
-    let mut reg_map: HashMap<Addr, AST> = HashMap::new();
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct AbsALU {
+    x: AST,
+    y: AST,
+    z: AST,
+    w: AST,
+}
 
-    let make_src = fn(from: Operand) -> Box<AST> {
-        match from {
-            V
-        if let Some(ast) = reg_map.get(from) {
-                    Box::new(*ast)
-                } else {
-                    Box::new(Leaf(A(*from)))
-    }
-    };
+fn abstract_process(alu: &AbsALU, inst: Inst) -> AbsALU {
+    alu.clone()
+}
 
-    for i in prog {
-        match i {
-            Inp(addr, from) => {
-                let src = make_src(from);
-                reg_map.insert(*addr, In(*addr, src));
-            }
-            Add(addr, opr) => {
-                let a = read(&new_alu, addr);
-                let b = decode(&new_alu, opr);
-                write(&mut new_alu, addr, a + b);
-            }
-            Mul(addr, opr) => {
-                let a = read(&new_alu, addr);
-                let b = decode(&new_alu, opr);
-                write(&mut new_alu, addr, a * b);
-            }
-            Div(addr, opr) => {
-                let a = read(&new_alu, addr);
-                let b = decode(&new_alu, opr);
-                write(&mut new_alu, addr, a / b);
-            }
-            Mod(addr, opr) => {
-                let a = read(&new_alu, addr);
-                let b = decode(&new_alu, opr);
-                write(&mut new_alu, addr, a % b);
-            }
-            Eql(addr, opr) => {
-                let a = read(&new_alu, addr);
-                let b = decode(&new_alu, opr);
-                write(&mut new_alu, addr, if a == b { 1 } else { 0 });
-            }
-        }
-    }
+fn abstract_interpret(prog: &Vec<Inst>, start: &AbsALU) -> AbsALU {
+    prog.iter()
+        .fold(start.clone(), |alu, inst| abstract_process(&alu, *inst))
 }
 
 fn read(alu: &ALU, addr: &Addr) -> i64 {
