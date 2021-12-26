@@ -938,7 +938,6 @@ fn plus(a: Pos, b: Pos) -> Pos {
 }
 
 fn mult(a: Vec<Pos>, b: Vec<Pos>) -> Vec<Pos> {
-    print!("{:?} x {:?}", a, b);
     let mut rot = vec![];
     for j in 0..3 {
         let mut pos = [0; 3];
@@ -1080,7 +1079,7 @@ fn compute_transform(
     sc_from: &Scanner,
     sc_to: &Scanner,
     mbeacons: &Vec<(usize, usize)>,
-) -> (Rotation, Pos) {
+) -> (Rotation, Pos, Pos) {
     // compute centroids in each basis
     let (mut centroid_from, mut centroid_to) =
         mbeacons
@@ -1132,9 +1131,9 @@ fn compute_transform(
     let rot = compute_rotation(&from_points, &to_points);
 
     // find translation
-    let trans = minus(centroid_from, rot.rotate(centroid_to));
+    let trans = minus(centroid_to, rot.rotate(centroid_from));
 
-    (rot, trans)
+    (rot, trans, centroid_from)
 }
 
 fn main() {
@@ -1395,7 +1394,7 @@ mod tests {
             let scans = vec![cur_scanner.clone(), sc[to].clone()];
             let mbeacons = compute_matching_beacons(&compute_matchings(&scans)[0]);
 
-            let (rot, trans) = compute_transform(&cur_scanner, &sc[to], &mbeacons);
+            let (rot, trans, centroid) = compute_transform(&cur_scanner, &sc[to], &mbeacons);
             println!("{} {} {:?} {:?}", from, to, rot, trans);
 
             // initialise found_beacons for first scanner
@@ -1416,7 +1415,7 @@ mod tests {
                     cur_scanner.beacons.push(p);
                 }
             }
-            scanners_pos.push((to, trans));
+            scanners_pos.push((to, plus([1000, 1000, 1000], trans)));
             to_xform.insert(to);
         }
 
