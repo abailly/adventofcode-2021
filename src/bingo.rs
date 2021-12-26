@@ -27,7 +27,6 @@ pub struct Board {
 impl Display for Board {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let b = &self.cells;
-        let mut res = String::new();
         for j in 0..5 {
             for i in 0..5 {
                 let c = b[j][i];
@@ -120,14 +119,8 @@ pub fn parse(file: &str) -> Option<Bingo> {
 
 pub fn sum_undrawn(board: &Board) -> i32 {
     board.cells.iter().fold(0, |n, row| {
-        row.iter().fold(n, |m, cell| {
-            if !cell.drawn {
-                println!("undrawn {}", cell.number);
-                cell.number + m
-            } else {
-                m
-            }
-        })
+        row.iter()
+            .fold(n, |m, cell| if !cell.drawn { cell.number + m } else { m })
     })
 }
 
@@ -159,7 +152,7 @@ fn is_winning(board: &Board) -> bool {
         }
     }
 
-    for i in 0..4 {
+    for i in 0..5 {
         if board
             .cells
             .iter()
@@ -178,6 +171,13 @@ pub fn play(bingo: &mut Bingo) -> Option<(Board, i32)> {
         let drawn = play1(bingo);
         bingo.boards.retain(|board| {
             if is_winning(&board) {
+                println!(
+                    "board {} wins with {}, score {}\n{}",
+                    board.num,
+                    drawn,
+                    sum_undrawn(&board) * drawn,
+                    board
+                );
                 winning_boards.push((board.clone(), drawn));
                 false
             } else {
