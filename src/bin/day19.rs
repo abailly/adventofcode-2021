@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::env;
 use std::process;
+use std::u64::MIN;
 
 type Pos = [i64; 3];
 
@@ -834,6 +835,9 @@ fn distance(x: Pos, y: Pos) -> u64 {
     ((x[1] - y[1]) * (x[1] - y[1]) + (x[0] - y[0]) * (x[0] - y[0]) + (x[2] - y[2]) * (x[2] - y[2]))
         as u64
 }
+fn distanceL1(x: Pos, y: Pos) -> u64 {
+    ((x[1] - y[1]).abs() + (x[0] - y[0]).abs() + (x[2] - y[2]).abs()) as u64
+}
 
 /// Build a matrix of distances between all beacons in the vector
 /// Only builds upper triangular matrice
@@ -1181,6 +1185,18 @@ fn invert(m: &Matched) -> Matched {
     (m.1, m.0, m.2.iter().map(|(f, t)| (*t, *f)).collect())
 }
 
+fn max_distance(pos: &Vec<(usize, Pos)>) -> u64 {
+    let mut maxd = MIN;
+    for i in 0..pos.len() {
+        for j in i + 1..pos.len() {
+            let d = distanceL1(pos[i].1, pos[j].1);
+            println!("maxd {}, d {} {} {}", maxd, d, pos[i].0, pos[j].0);
+            maxd = maxd.max(d);
+        }
+    }
+    maxd
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1343,7 +1359,7 @@ mod tests {
                 ],
             },
         ];
-        let sc = scanners();
+        let sc = sample_scanners;
         let mut matchings: Vec<Matched> = compute_matchings(&sc)
             .iter()
             .map(|m| {
@@ -1365,19 +1381,26 @@ mod tests {
         let mut to_xform: HashSet<usize> = HashSet::new();
         to_xform.insert(0);
         let ordered_matchings = order_matchings(&matchings);
+        let mut cur_scanner = sc[0].clone();
+        let mut scanners_pos: Vec<(usize, Pos)> = vec![];
+        scanners_pos.push((0, [0, 0, 0]));
+
         println!("matched {:?}", ordered_matchings);
-        for (from, to, mbeacons) in ordered_matchings {
+        for (from, to, _) in ordered_matchings {
             if to_xform.contains(&to) {
                 continue;
             }
-            let sc_from = transform_scanner(&sc[from], xformed[from]);
-            let sc_to = transform_scanner(&sc[to], xformed[to]);
-            let (rot, trans) = compute_transform(&sc_from, &sc_to, &mbeacons);
+
+            // (re)compute matchings
+            let scans = vec![cur_scanner.clone(), sc[to].clone()];
+            let mbeacons = compute_matching_beacons(&compute_matchings(&scans)[0]);
+
+            let (rot, trans) = compute_transform(&cur_scanner, &sc[to], &mbeacons);
             println!("{} {} {:?} {:?}", from, to, rot, trans);
 
             // initialise found_beacons for first scanner
             if found_beacons.is_empty() {
-                sc_from.beacons.iter().enumerate().for_each(|(_i, b)| {
+                cur_scanner.beacons.iter().enumerate().for_each(|(_i, b)| {
                     found_beacons.insert(*b);
                     ()
                 });
@@ -1385,20 +1408,61 @@ mod tests {
 
             let not_to_add: Vec<usize> = mbeacons.iter().map(|(_, t)| *t).collect();
 
-            for i in 0..sc_to.beacons.len() {
+            for i in 0..sc[to].beacons.len() {
                 if !not_to_add.contains(&i) {
-                    let pt = sc_to.beacons[i];
+                    let pt = sc[to].beacons[i];
                     let p = plus(rot.rotate(pt), trans);
                     found_beacons.insert(p);
+                    cur_scanner.beacons.push(p);
                 }
             }
-            xformed[to] = Some((rot, trans));
+            scanners_pos.push((to, trans));
             to_xform.insert(to);
         }
 
         let mut bec: Vec<Pos> = found_beacons.drain().collect();
         bec.sort();
         println!("{} {:?}", bec.len(), bec);
-        assert_eq!(bec.len(), 79);
+        println!("scanners: {:?}", scanners_pos);
+        println!("max_distance {:?}", max_distance(&scanners_pos));
+        assert_eq!(bec.len(), 330);
+    }
+
+    #[test]
+    fn compute_max_distance() {
+        let scanners_pos: Vec<(usize, Pos)> = vec![
+            (0, [0, 0, 0]),
+            (15, [-202, -596, -600]),
+            (19, [35, 40, 1147]),
+            (3, [29, 73, 2260]),
+            (1, [14, -601, -1669]),
+            (23, [-316, -1175, -214]),
+            (2, [123, -1831, -99]),
+            (4, [-995, -1057, -362]),
+            (10, [679, -1646, 20]),
+            (9, [755, -1816, -349]),
+            (5, [684, -1135, -655]),
+            (18, [-90, -1537, -994]),
+            (13, [595, -944, -661]),
+            (20, [-528, -1736, -827]),
+            (24, [-222, -2318, -1239]),
+            (17, [245, -1142, 411]),
+            (7, [890, -1663, 461]),
+            (21, [213, -55, 331]),
+            (25, [-50, -1644, 674]),
+            (6, [-263, -1040, 258]),
+            (16, [795, -533, 626]),
+            (8, [1523, -1126, 1307]),
+            (14, [1419, -364, 2276]),
+            (11, [149, -577, -735]),
+            (12, [670, -1024, -1158]),
+            (22, [-431, -1425, -935]),
+        ];
+
+        println!(
+            "max_distance {:?}\n {:?}",
+            scanners_pos,
+            max_distance(&scanners_pos)
+        );
     }
 }
