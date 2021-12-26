@@ -50,6 +50,12 @@ enum AST {
     Leaf(Operand),
 }
 
+fn depth(a: &AST) -> usize {
+    match a {
+        Node(_, l, r) => depth(l).max(depth(r)),
+        _ => 0,
+    }
+}
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Op {
     Ad,
