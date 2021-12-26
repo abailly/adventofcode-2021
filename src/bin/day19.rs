@@ -1,3 +1,4 @@
+use aoc2021::kruskal::min_spanning_tree;
 use core::u64::MAX;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -1152,6 +1153,30 @@ fn transform_matrix(points: [(Pos, Pos); 3]) -> [Pos; 3] {
 
 type Matched = (usize, usize, Vec<(usize, usize)>);
 
+fn order_matchings(ms: &Vec<Matched>) -> Vec<Matched> {
+    let mut visited: HashSet<usize> = HashSet::new();
+    let mut to_visit = vec![];
+    let mut edges = vec![];
+    to_visit.push(0);
+
+    while !to_visit.is_empty() {
+        let v = to_visit.pop().unwrap();
+        for m in ms {
+            let (f, t, bs) = m;
+            if *f == v && !visited.contains(t) {
+                edges.push((*f, *t, bs.clone()));
+                to_visit.push(*t);
+            } else if *t == v && !visited.contains(f) {
+                edges.push(invert(m));
+                to_visit.push(*f);
+            }
+        }
+        visited.insert(v);
+    }
+
+    edges
+}
+
 fn invert(m: &Matched) -> Matched {
     (m.1, m.0, m.2.iter().map(|(f, t)| (*t, *f)).collect())
 }
@@ -1337,10 +1362,14 @@ mod tests {
         xformed[0] = Some((ALL_ROTATIONS[0], [0, 0, 0]));
 
         // scanners to transform
-        let mut to_xform: Vec<usize> = (1..sc.len()).collect();
-        let ordered_matchings = min_spanning_tree(&matchings);
+        let mut to_xform: HashSet<usize> = HashSet::new();
+        to_xform.insert(0);
+        let ordered_matchings = order_matchings(&matchings);
         println!("matched {:?}", ordered_matchings);
         for (from, to, mbeacons) in ordered_matchings {
+            if to_xform.contains(&to) {
+                continue;
+            }
             let sc_from = transform_scanner(&sc[from], xformed[from]);
             let sc_to = transform_scanner(&sc[to], xformed[to]);
             let (rot, trans) = compute_transform(&sc_from, &sc_to, &mbeacons);
@@ -1364,12 +1393,12 @@ mod tests {
                 }
             }
             xformed[to] = Some((rot, trans));
-            to_xform.retain(|x| *x != from && *x != to);
+            to_xform.insert(to);
         }
 
         let mut bec: Vec<Pos> = found_beacons.drain().collect();
         bec.sort();
         println!("{} {:?}", bec.len(), bec);
-        assert_eq!(0, 4140);
+        assert_eq!(bec.len(), 79);
     }
 }

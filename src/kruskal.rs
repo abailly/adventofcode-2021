@@ -29,21 +29,20 @@ impl<V: Eq + Hash + Ord + Clone + Debug> Graph<V> for Vec<(V, V)> {
     }
 }
 
-pub fn min_spanning_tree<V: disjoint_sets::ElementType + Display, G: Graph<V>>(
+pub fn min_spanning_tree<V: disjoint_sets::ElementType + Display, G: Graph<V> + Debug>(
     graph: &G,
 ) -> Vec<(V, V)> {
     let mut result = vec![];
-    println!("{}", graph.len());
     let mut uf = UnionFind::new(graph.len());
+    println!("graph {:?}", graph);
 
     for (src, dst) in graph.sorted_edges() {
-        println!("{} {}", src, dst);
         if !uf.equiv(src, dst) {
             uf.union(src, dst);
             result.push((src, dst));
         }
     }
-
+    println!("spanning tree {:?}", result);
     result
 }
 
