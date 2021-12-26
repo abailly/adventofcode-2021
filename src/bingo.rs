@@ -6,6 +6,8 @@ use nom::error::Error;
 use nom::multi::separated_list1;
 use nom::Err;
 use std::convert::TryInto;
+use std::fmt;
+use std::fmt::Display;
 use std::fs::read_to_string;
 
 type E<'a> = Err<Error<&'a str>>;
@@ -20,6 +22,25 @@ pub struct Cell {
 pub struct Board {
     num: i32,
     cells: [[Cell; 5]; 5],
+}
+
+impl Display for Board {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let b = &self.cells;
+        let mut res = String::new();
+        for j in 0..5 {
+            for i in 0..5 {
+                let c = b[j][i];
+                if c.drawn {
+                    write!(f, "{:^5}", c.number);
+                } else {
+                    write!(f, "[{:^3}]", c.number);
+                }
+            }
+            write!(f, "\n");
+        }
+        write!(f, "")
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -99,8 +120,14 @@ pub fn parse(file: &str) -> Option<Bingo> {
 
 pub fn sum_undrawn(board: &Board) -> i32 {
     board.cells.iter().fold(0, |n, row| {
-        row.iter()
-            .fold(n, |m, cell| if !cell.drawn { cell.number + m } else { m })
+        row.iter().fold(n, |m, cell| {
+            if !cell.drawn {
+                println!("undrawn {}", cell.number);
+                cell.number + m
+            } else {
+                m
+            }
+        })
     })
 }
 
@@ -147,7 +174,7 @@ fn is_winning(board: &Board) -> bool {
 
 pub fn play(bingo: &mut Bingo) -> Option<(Board, i32)> {
     let mut winning_boards: Vec<(Board, i32)> = vec![];
-    while !bingo.draw.is_empty() && !bingo.boards.is_empty() {
+    while !bingo.boards.is_empty() {
         let drawn = play1(bingo);
         bingo.boards.retain(|board| {
             if is_winning(&board) {
@@ -161,14 +188,17 @@ pub fn play(bingo: &mut Bingo) -> Option<(Board, i32)> {
     }
     let (first_win, d) = winning_boards[0];
     println!(
-        "first winning #board {}, score {}",
+        "first winning #board {} with {},\n{} score {}",
         first_win.num,
+        d,
+        first_win,
         sum_undrawn(&first_win) * d
     );
     if let Some(last_win) = winning_boards.pop() {
         println!(
-            "last winning #board {}, score {}",
+            "last winning #board {},\n{} score {}",
             last_win.0.num,
+            last_win.0,
             sum_undrawn(&last_win.0) * last_win.1
         );
         return Some(last_win);
