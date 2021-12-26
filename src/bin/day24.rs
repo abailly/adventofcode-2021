@@ -30,7 +30,8 @@ enum Addr {
 enum Operand {
     A(Addr),
     V(i64),
-    I(usize), // input index
+    I(usize),    // input index
+    R(i64, i64), // range of values
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Copy)]
@@ -90,7 +91,8 @@ impl Display for Operand {
         match self {
             A(addr) => write!(f, "{:?}", addr),
             V(n) => write!(f, "{}", n),
-            I(i) => write!(f, "[{}]", i),
+            I(i) => write!(f, "{{{}}}", i),
+            R(lb, ub) => write!(f, "[{},{}]", lb, ub),
         }
     }
 }
@@ -126,6 +128,7 @@ fn abs_read(alu: &AbsALU, addr: Addr) -> AST {
 fn abs_decode(alu: &AbsALU, op: &Operand) -> AST {
     match op {
         A(addr) => abs_read(alu, *addr),
+        I(_) => Leaf(R(1, 9)),
         o => Leaf(*o),
     }
 }
@@ -156,6 +159,7 @@ fn upper_bound(a: &AST) -> i64 {
         Node(Eq, _, _) => 1,
         Leaf(I(_)) => 9,
         Leaf(V(x)) => *x,
+        Leaf(R(_, ub)) => *ub,
         _ => MAX,
     }
 }
@@ -169,19 +173,24 @@ fn lower_bound(a: &AST) -> i64 {
         Node(Eq, _, _) => 0,
         Leaf(I(_)) => 1,
         Leaf(V(x)) => *x,
+        Leaf(R(lb, _)) => *lb,
         _ => MAX,
     }
 }
 
 fn mknode(op: Op, a: &AST, b: &AST) -> AST {
-    match op {
+    println!("mknode {} {} {}", op, a, b);
+    let res = match op {
         Mu => match (a, b) {
             (Leaf(V(0)), _) => Leaf(V(0)),
             (_, Leaf(V(0))) => Leaf(V(0)),
             (Leaf(V(1)), _) => b.clone(),
             (_, Leaf(V(1))) => a.clone(),
+            (Leaf(V(n)), Leaf(R(lb, ub))) => Leaf(R(lb * n, ub * n)),
+            (Leaf(R(lb, ub)), Leaf(V(n))) => Leaf(R(lb * n, ub * n)),
+            (Leaf(R(lb, ub)), Leaf(R(lb1, ub1))) => Leaf(R(lb * lb1, ub * ub1)),
 
-            // commutativity
+            // associativity
             (Leaf(V(z)), Node(Mu, y, x)) => match **x {
                 Leaf(V(t)) => Node(Mu, y.clone(), Box::new(Leaf(V(z * t)))),
                 _ => Node(Mu, Box::new(a.clone()), Box::new(b.clone())),
@@ -190,6 +199,18 @@ fn mknode(op: Op, a: &AST, b: &AST) -> AST {
                 Leaf(V(t)) => Node(Mu, y.clone(), Box::new(Leaf(V(z * t)))),
                 _ => Node(Mu, Box::new(a.clone()), Box::new(b.clone())),
             },
+            // distributivity
+            (Node(Ad, y, x), Leaf(V(_))) => {
+                // println!("checking distributivity");
+                let ny = mknode(Mu, b, y);
+                let nx = mknode(Ad, b, x);
+                if depth(&ny) < depth(&nx) {
+                    Node(Ad, Box::new(ny), x.clone())
+                } else {
+                    Node(Ad, Box::new(nx), y.clone())
+                }
+            }
+            (Leaf(V(_)), Node(Ad, _, _)) => mknode(Mu, b, a),
             (Leaf(V(x)), Leaf(V(y))) => Leaf(V(x * y)),
             _ => Node(Mu, Box::new(a.clone()), Box::new(b.clone())),
         },
@@ -197,29 +218,42 @@ fn mknode(op: Op, a: &AST, b: &AST) -> AST {
             (Leaf(V(0)), _) => b.clone(),
             (_, Leaf(V(0))) => a.clone(),
             (Leaf(V(x)), Leaf(V(y))) => Leaf(V(x + y)),
-            (Leaf(V(z)), Node(Ad, y, x)) => {
-                if let Leaf(V(t)) = **x {
-                    Node(Ad, y.clone(), Box::new(Leaf(V(z + t))))
-                } else if let Leaf(V(t)) = **y {
-                    Node(Ad, x.clone(), Box::new(Leaf(V(z + t))))
+            (Leaf(V(n)), Leaf(R(lb, ub))) => Leaf(R(lb + n, ub + n)),
+            (Leaf(R(lb, ub)), Leaf(V(n))) => Leaf(R(lb + n, ub + n)),
+            (Leaf(R(lb, ub)), Leaf(R(lb1, ub1))) => Leaf(R(lb + lb1, ub + ub1)),
+
+            // associativity of addition
+            (Leaf(V(_)), Node(Ad, y, x)) => {
+                // println!("checking associativity");
+                let ny = mknode(Ad, a, y);
+                let nx = mknode(Ad, a, x);
+                if depth(&ny) < depth(&nx) {
+                    Node(Ad, Box::new(ny), x.clone())
                 } else {
-                    Node(Ad, Box::new(a.clone()), Box::new(b.clone()))
+                    Node(Ad, Box::new(nx), y.clone())
                 }
             }
-            (Node(Ad, y, x), Leaf(V(z))) => match **x {
-                Leaf(V(t)) => Node(Ad, y.clone(), Box::new(Leaf(V(z + t)))),
-                _ => Node(Ad, Box::new(a.clone()), Box::new(b.clone())),
-            },
+            (Node(Ad, _, _), Leaf(V(_))) => mknode(Ad, b, a),
+            (Node(Mo, x, y), Leaf(V(_))) => mknode(Mo, &mknode(Ad, x, b), y),
             _ => Node(Ad, Box::new(a.clone()), Box::new(b.clone())),
         },
         Di => match (a, b) {
             (_, Leaf(V(1))) => a.clone(),
             (Leaf(V(x)), Leaf(V(y))) => Leaf(V(x / y)),
+            (Leaf(R(lb, ub)), Leaf(V(y))) => Leaf(R(lb / y, ub / y)),
             _ => Node(Di, Box::new(a.clone()), Box::new(b.clone())),
         },
         Mo => match (a, b) {
             (Leaf(V(x)), Leaf(V(y))) => Leaf(V(x % y)),
             (_, Leaf(V(y))) if upper_bound(a) < *y => a.clone(),
+            (Leaf(R(lb, ub)), Leaf(V(y))) => {
+                let (l, u) = (lb % y, ub % y);
+                if l < u {
+                    Leaf(R(l, u))
+                } else {
+                    Leaf(R(u, l))
+                }
+            }
             _ => Node(Mo, Box::new(a.clone()), Box::new(b.clone())),
         },
         Eq => match (a, b) {
@@ -238,10 +272,13 @@ fn mknode(op: Op, a: &AST, b: &AST) -> AST {
                 }
             }
         },
-    }
+    };
+    // println!(" => {}", res);
+    res
 }
 
 fn abstract_process(alu: &AbsALU, inst: Inst) -> AbsALU {
+    // println!("processing {:?}", inst);
     let mut new_alu = alu.clone();
     match inst {
         Inp(addr, opr) => {
@@ -296,6 +333,7 @@ fn decode(alu: &ALU, op: &Operand) -> i64 {
         A(addr) => read(alu, addr),
         V(v) => *v,
         I(i) => alu.input[*i].into(),
+        _ => 0,
     }
 }
 
