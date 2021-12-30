@@ -85,7 +85,7 @@ impl Rotate for Matrix {
         let mut res = [0; 3];
         for j in 0..3 {
             for i in 0..3 {
-                res[j] += pos[j] * self[j][i];
+                res[j] += pos[i] * self[j][i];
             }
         }
         res
@@ -124,44 +124,6 @@ fn apply_rotation(a: &HashSet<Point>, rotation: Matrix) -> HashSet<Point> {
     a.iter().map(|p| rotation.rotate(*p)).collect()
 }
 
-/// Assuming the points are centered at the same location, compute the rotation
-/// of b that maximises the number of equal points.
-// pub fn compute_rotation(a: &Vec<Point>, b: &Vec<Point>) -> Option<Matrix> {
-//     let mut minimum = MAX;
-//     let mut best_rot = 0;
-//     for r in 0..24 {
-//         let mut dists = 0;
-//         let rotated = apply_rotation(b, ALL_ROTATIONS[r]);
-//         for j in 0..a.len() {
-//             let dist = distance(a[j], rotated[j]);
-//             dists += dist;
-//         }
-//         if dists <= minimum {
-//             minimum = dists;
-//             best_rot = r;
-//         }
-//     }
-//     if minimum < (a.len() + b.len()) as u64 {
-//         None
-//     } else {
-//         Some(ALL_ROTATIONS[best_rot])
-//     }
-// }
-
-/// Compute relative vectors between all points
-fn compute_vectors(pos: &Vec<Point>) -> Vec<Vec<Point>> {
-    let mut res = vec![];
-    for j in 0..pos.len() {
-        let mut new_row = Vec::with_capacity(pos.len());
-        new_row.resize(pos.len(), [0; 3]);
-        res.push(new_row);
-        for i in j + 1..pos.len() {
-            res[j][i] = minus(pos[i], pos[j]);
-        }
-    }
-    res
-}
-
 /// Given a pair of vectors matrices, find pairs of vectors with identical
 /// coordinates up to a rotation
 fn matching_vectors(d1: &HashSet<Point>, d2: &HashSet<Point>) -> Option<(Point, HashSet<Point>)> {
@@ -176,8 +138,8 @@ fn matching_vectors(d1: &HashSet<Point>, d2: &HashSet<Point>) -> Option<(Point, 
                     .map(|b| minus(b, offset))
                     .collect();
                 let res: HashSet<Point> = d1.intersection(&d3).map(|p| *p).collect();
-                println!("found {} matchings", res.len());
                 if res.len() >= 12 {
+                    println!("matching {:?}", res);
                     return Some((offset.clone(), d3.clone()));
                 }
             }
@@ -195,10 +157,45 @@ pub fn match_points(from: &HashSet<Point>, to: &HashSet<Point>) -> (Point, HashS
     matchings.unwrap()
 }
 
+/// compute all possible rotations for a given point, using algorithm
+/// from https://github.com/hyper-neutrino/advent-of-code/blob/main/2021/day19p2.py#L11
+fn rotations(p: &Point) -> HashSet<Point> {
+    let mut s = p.clone();
+    let mut k = HashSet::new();
+    for _ in 0..4 {
+        for _ in 0..4 {
+            k.insert(s);
+            s = [s[2], s[1], -s[0]];
+        }
+        k.insert([s[1], -s[0], s[2]]);
+        k.insert([-s[1], s[0], s[2]]);
+        s = [s[0], s[2], -s[1]];
+    }
+    k
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::collections::HashSet;
+
+    #[test]
+    fn can_compute_all_rotations() {
+        let point = [528, -643, 409];
+        let all_rots: HashSet<_> = HashSet::from(
+            ALL_ROTATIONS
+                .iter()
+                .map(|r| {
+                    let rot = r.rotate(point);
+                    println!("{:?}", rot);
+                    rot
+                })
+                .collect(),
+        );
+
+        println!("{:?}", define_all_rotations());
+        assert_eq!(all_rots, rotations(&point));
+    }
 
     #[test]
     fn can_identify_points_from_2_scanners() {
@@ -284,5 +281,6 @@ mod tests {
         exp.extend(expected);
 
         assert!(exp.is_subset(&res.1));
+        assert_eq!(res.0, [68, -1246, -43]);
     }
 }
