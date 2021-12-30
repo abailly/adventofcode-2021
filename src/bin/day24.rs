@@ -52,7 +52,7 @@ enum AST {
 
 fn depth(a: &AST) -> usize {
     match a {
-        Node(_, l, r) => depth(l).max(depth(r)),
+        Node(_, l, r) => 1 + depth(l).max(depth(r)),
         _ => 0,
     }
 }
@@ -108,8 +108,15 @@ impl Display for AbsALU {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "x = {}\ny = {}\nz= {}\nw= {}",
-            self.x, self.y, self.z, self.w
+            "x ({}) = {}\ny ({}) = {}\nz ({}) = {}\nw ({}) = {}",
+            depth(&self.x),
+            self.x,
+            depth(&self.y),
+            self.y,
+            depth(&self.z),
+            self.z,
+            depth(&self.w),
+            self.w
         )
     }
 }
@@ -190,6 +197,18 @@ fn mknode(op: Op, a: &AST, b: &AST) -> AST {
                 Leaf(V(t)) => Node(Mu, y.clone(), Box::new(Leaf(V(z * t)))),
                 _ => Node(Mu, Box::new(a.clone()), Box::new(b.clone())),
             },
+            // distributivity
+            (Node(Ad, y, x), Leaf(V(_))) => {
+                // println!("checking distributivity");
+                let ny = mknode(Mu, b, y);
+                let nx = mknode(Mu, b, x);
+                if depth(&ny) < depth(&nx) {
+                    Node(Ad, Box::new(ny), x.clone())
+                } else {
+                    Node(Ad, Box::new(nx), y.clone())
+                }
+            }
+            (Leaf(V(_)), Node(Ad, _, _)) => mknode(Mu, b, a),
             (Leaf(V(x)), Leaf(V(y))) => Leaf(V(x * y)),
             _ => Node(Mu, Box::new(a.clone()), Box::new(b.clone())),
         },
@@ -197,19 +216,18 @@ fn mknode(op: Op, a: &AST, b: &AST) -> AST {
             (Leaf(V(0)), _) => b.clone(),
             (_, Leaf(V(0))) => a.clone(),
             (Leaf(V(x)), Leaf(V(y))) => Leaf(V(x + y)),
-            (Leaf(V(z)), Node(Ad, y, x)) => {
-                if let Leaf(V(t)) = **x {
-                    Node(Ad, y.clone(), Box::new(Leaf(V(z + t))))
-                } else if let Leaf(V(t)) = **y {
-                    Node(Ad, x.clone(), Box::new(Leaf(V(z + t))))
+            // associativity of addition
+            (Leaf(V(_)), Node(Ad, y, x)) => {
+                // println!("checking associativity");
+                let ny = mknode(Ad, a, y);
+                let nx = mknode(Ad, a, x);
+                if depth(&ny) < depth(&nx) {
+                    Node(Ad, Box::new(ny), x.clone())
                 } else {
-                    Node(Ad, Box::new(a.clone()), Box::new(b.clone()))
+                    Node(Ad, Box::new(nx), y.clone())
                 }
             }
-            (Node(Ad, y, x), Leaf(V(z))) => match **x {
-                Leaf(V(t)) => Node(Ad, y.clone(), Box::new(Leaf(V(z + t)))),
-                _ => Node(Ad, Box::new(a.clone()), Box::new(b.clone())),
-            },
+            (Node(Ad, _, _), Leaf(V(_))) => mknode(Ad, b, a),
             _ => Node(Ad, Box::new(a.clone()), Box::new(b.clone())),
         },
         Di => match (a, b) {
@@ -220,6 +238,8 @@ fn mknode(op: Op, a: &AST, b: &AST) -> AST {
         Mo => match (a, b) {
             (Leaf(V(x)), Leaf(V(y))) => Leaf(V(x % y)),
             (_, Leaf(V(y))) if upper_bound(a) < *y => a.clone(),
+            (Node(Ad, x, y), Leaf(V(_))) => mknode(Ad, &mknode(Mo, x, b), &mknode(Mo, y, b)),
+            (Node(Mu, x, y), Leaf(V(_))) => mknode(Mu, &mknode(Mo, x, b), &mknode(Mo, y, b)),
             _ => Node(Mo, Box::new(a.clone()), Box::new(b.clone())),
         },
         Eq => match (a, b) {
