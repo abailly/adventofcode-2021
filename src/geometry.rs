@@ -126,7 +126,10 @@ fn apply_rotation(a: &HashSet<Point>, rotation: Matrix) -> HashSet<Point> {
 
 /// Given a pair of vectors matrices, find pairs of vectors with identical
 /// coordinates up to a rotation
-fn matching_vectors(d1: &HashSet<Point>, d2: &HashSet<Point>) -> Option<(Point, HashSet<Point>)> {
+pub fn matching_vectors(
+    d1: &HashSet<Point>,
+    d2: &HashSet<Point>,
+) -> Option<(Point, HashSet<Point>)> {
     for r in ALL_ROTATIONS {
         for p1 in d1 {
             let rotd2 = apply_rotation(d2, r);
@@ -198,7 +201,7 @@ mod tests {
     }
 
     #[test]
-    fn can_identify_points_from_2_scanners() {
+    fn can_compute_relative_position_of_scanners() {
         let scanner0 = [
             [404 as i64, -588, -901],
             [528, -643, 409],
