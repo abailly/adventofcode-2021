@@ -1,4 +1,4 @@
-use aoc2021::kruskal::min_spanning_tree;
+use aoc2021::geometry::*;
 use core::u64::MAX;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -6,12 +6,10 @@ use std::env;
 use std::process;
 use std::u64::MIN;
 
-type Pos = [i64; 3];
-
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 struct Scanner {
     id: u8,
-    beacons: Vec<Pos>,
+    beacons: Vec<Point>,
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
@@ -831,17 +829,17 @@ fn scanners() -> Vec<Scanner> {
 
 /// compute distance within 2 points
 /// 2 keep things in integer realm, we don't compute square root
-fn distance(x: Pos, y: Pos) -> u64 {
+fn distance(x: Point, y: Point) -> u64 {
     ((x[1] - y[1]) * (x[1] - y[1]) + (x[0] - y[0]) * (x[0] - y[0]) + (x[2] - y[2]) * (x[2] - y[2]))
         as u64
 }
-fn distanceL1(x: Pos, y: Pos) -> u64 {
+fn distanceL1(x: Point, y: Point) -> u64 {
     ((x[1] - y[1]).abs() + (x[0] - y[0]).abs() + (x[2] - y[2]).abs()) as u64
 }
 
 /// Build a matrix of distances between all beacons in the vector
 /// Only builds upper triangular matrice
-fn compute_distances(pos: &Vec<Pos>) -> Vec<Vec<u64>> {
+fn compute_distances(pos: &Vec<Point>) -> Vec<Vec<u64>> {
     let mut res = vec![];
     for j in 0..pos.len() {
         let mut new_row = Vec::with_capacity(pos.len());
@@ -929,135 +927,7 @@ fn compute_matching_beacons(matching: &Matching) -> Vec<(usize, usize)> {
         .collect()
 }
 
-fn minus(a: Pos, b: Pos) -> Pos {
-    [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
-}
-
-fn plus(a: Pos, b: Pos) -> Pos {
-    [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
-}
-
-fn mult(a: Vec<Pos>, b: Vec<Pos>) -> Vec<Pos> {
-    let mut rot = vec![];
-    for j in 0..3 {
-        let mut pos = [0; 3];
-        for i in 0..3 {
-            let mut res = 0;
-            for k in 0..3 {
-                res += a[j][k] * b[k][i];
-            }
-            pos[i] = res;
-        }
-        rot.push(pos);
-    }
-    println!("= {:?}", rot);
-    rot
-}
-
-/// From https://stackoverflow.com/questions/33190042/how-to-calculate-all-24-rotations-of-3d-array
-/// Compute a list of all rotations of a cube, there are 24 of them
-fn define_all_rotations() -> Vec<Vec<Pos>> {
-    let fam_a = vec![
-        vec![[1, 0, 0], [0, 1, 0], [0, 0, 1]],
-        vec![[0, 1, 0], [0, 0, 1], [1, 0, 0]],
-        vec![[0, 0, 1], [1, 0, 0], [0, 1, 0]],
-    ];
-
-    let fam_b = vec![
-        vec![[1, 0, 0], [0, 1, 0], [0, 0, 1]],
-        vec![[-1, 0, 0], [0, -1, 0], [0, 0, 1]],
-        vec![[-1, 0, 0], [0, 1, 0], [0, 0, -1]],
-        vec![[1, 0, 0], [0, -1, 0], [0, 0, -1]],
-    ];
-
-    let fam_c = vec![
-        vec![[1, 0, 0], [0, 1, 0], [0, 0, 1]],
-        vec![[0, 0, -1], [0, -1, 0], [-1, 0, 0]],
-    ];
-
-    let mut res = vec![];
-    for a in &fam_a {
-        for b in &fam_b {
-            for c in &fam_c {
-                let rot = mult(mult(a.to_vec(), b.to_vec()), c.to_vec());
-                res.push(rot);
-            }
-        }
-    }
-    res
-}
-
-type Rotation = [[i64; 3]; 3];
-
-trait Rotate {
-    fn rotate(&self, pos: Pos) -> Pos;
-}
-
-impl Rotate for Rotation {
-    fn rotate(&self, pos: Pos) -> Pos {
-        let mut res = [0; 3];
-        for j in 0..3 {
-            for i in 0..3 {
-                res[j] += pos[j] * self[i][j];
-            }
-        }
-        res
-    }
-}
-
-static ALL_ROTATIONS: [[[i64; 3]; 3]; 24] = [
-    [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
-    [[0, 0, -1], [0, -1, 0], [-1, 0, 0]],
-    [[-1, 0, 0], [0, -1, 0], [0, 0, 1]],
-    [[0, 0, 1], [0, 1, 0], [-1, 0, 0]],
-    [[-1, 0, 0], [0, 1, 0], [0, 0, -1]],
-    [[0, 0, 1], [0, -1, 0], [1, 0, 0]],
-    [[1, 0, 0], [0, -1, 0], [0, 0, -1]],
-    [[0, 0, -1], [0, 1, 0], [1, 0, 0]],
-    [[0, 1, 0], [0, 0, 1], [1, 0, 0]],
-    [[0, -1, 0], [-1, 0, 0], [0, 0, -1]],
-    [[0, -1, 0], [0, 0, 1], [-1, 0, 0]],
-    [[0, 1, 0], [-1, 0, 0], [0, 0, 1]],
-    [[0, 1, 0], [0, 0, -1], [-1, 0, 0]],
-    [[0, -1, 0], [1, 0, 0], [0, 0, 1]],
-    [[0, -1, 0], [0, 0, -1], [1, 0, 0]],
-    [[0, 1, 0], [1, 0, 0], [0, 0, -1]],
-    [[0, 0, 1], [1, 0, 0], [0, 1, 0]],
-    [[-1, 0, 0], [0, 0, -1], [0, -1, 0]],
-    [[0, 0, 1], [-1, 0, 0], [0, -1, 0]],
-    [[-1, 0, 0], [0, 0, 1], [0, 1, 0]],
-    [[0, 0, -1], [-1, 0, 0], [0, 1, 0]],
-    [[1, 0, 0], [0, 0, 1], [0, -1, 0]],
-    [[0, 0, -1], [1, 0, 0], [0, -1, 0]],
-    [[1, 0, 0], [0, 0, -1], [0, 1, 0]],
-];
-
-/// Transform all points given by the given rotation
-fn apply_rotation(a: &Vec<Pos>, rotation: Rotation) -> Vec<Pos> {
-    a.iter().map(|p| rotation.rotate(*p)).collect()
-}
-
-/// Assuming the points are centered at the same location, compute the rotation
-/// of b that maximises the number of equal points.
-fn compute_rotation(a: &Vec<Pos>, b: &Vec<Pos>) -> Rotation {
-    let mut minimum = MAX;
-    let mut best_rot = 0;
-    for r in 0..24 {
-        let mut dists = 0;
-        let rotated = apply_rotation(b, ALL_ROTATIONS[r]);
-        for j in 0..a.len() {
-            let dist = distance(a[j], rotated[j]);
-            dists += dist;
-        }
-        if dists <= minimum {
-            minimum = dists;
-            best_rot = r;
-        }
-    }
-    ALL_ROTATIONS[best_rot]
-}
-
-fn transform_scanner(sc: &Scanner, xform: Option<(Rotation, Pos)>) -> Scanner {
+fn transform_scanner(sc: &Scanner, xform: Option<(Matrix, Point)>) -> Scanner {
     match xform {
         Some((rot, trans)) => {
             let beacons = sc
@@ -1079,7 +949,7 @@ fn compute_transform(
     sc_from: &Scanner,
     sc_to: &Scanner,
     mbeacons: &Vec<(usize, usize)>,
-) -> (Rotation, Pos, Pos) {
+) -> (Matrix, Point, Point) {
     // compute centroids in each basis
     let (mut centroid_from, mut centroid_to) =
         mbeacons
@@ -1106,7 +976,7 @@ fn compute_transform(
     ];
 
     // compute each point's coordinate relative to centroid
-    let (from_points, to_points): (Vec<Pos>, Vec<Pos>) = mbeacons
+    let (from_points, to_points): (Vec<Point>, Vec<Point>) = mbeacons
         .iter()
         .map(|(f, t)| {
             let pf = sc_from.beacons[*f];
@@ -1128,7 +998,7 @@ fn compute_transform(
         .unzip();
 
     // find optimal rotation
-    let rot = compute_rotation(&from_points, &to_points);
+    let rot = compute_rotation(&to_points, &from_points);
 
     // find translation
     let trans = minus(centroid_to, rot.rotate(centroid_from));
@@ -1148,7 +1018,7 @@ fn main() {
 
 /// Compute transform matrix given a list of matching points
 /// There must be at least 3 points
-fn transform_matrix(points: [(Pos, Pos); 3]) -> [Pos; 3] {
+fn transform_matrix(points: [(Point, Point); 3]) -> [Point; 3] {
     let mut res = [[1, 1, 1], [1, 1, 1], [1, 1, 1]];
 
     res
@@ -1184,7 +1054,11 @@ fn invert(m: &Matched) -> Matched {
     (m.1, m.0, m.2.iter().map(|(f, t)| (*t, *f)).collect())
 }
 
-fn max_distance(pos: &Vec<(usize, Pos)>) -> u64 {
+fn relative_position(rot: &Matrix, trans: &Point, centroid: &Point, scanner: &Scanner) -> Point {
+    *centroid
+}
+
+fn max_distance(pos: &Vec<(usize, Point)>) -> u64 {
     let mut maxd = MIN;
     for i in 0..pos.len() {
         for j in i + 1..pos.len() {
@@ -1369,7 +1243,7 @@ mod tests {
             .collect();
         matchings.sort();
         println!("{:?}", matchings);
-        let mut found_beacons: HashSet<Pos> = HashSet::new();
+        let mut found_beacons: HashSet<Point> = HashSet::new();
 
         // transformations found so far
         let mut xformed = Vec::with_capacity(sc.len());
@@ -1381,7 +1255,7 @@ mod tests {
         to_xform.insert(0);
         let ordered_matchings = order_matchings(&matchings);
         let mut cur_scanner = sc[0].clone();
-        let mut scanners_pos: Vec<(usize, Pos)> = vec![];
+        let mut scanners_pos: Vec<(usize, Point)> = vec![];
         scanners_pos.push((0, [0, 0, 0]));
 
         println!("matched {:?}", ordered_matchings);
@@ -1419,7 +1293,7 @@ mod tests {
             to_xform.insert(to);
         }
 
-        let mut bec: Vec<Pos> = found_beacons.drain().collect();
+        let mut bec: Vec<Point> = found_beacons.drain().collect();
         bec.sort();
         println!("{} {:?}", bec.len(), bec);
         println!("scanners: {:?}", scanners_pos);
@@ -1428,8 +1302,92 @@ mod tests {
     }
 
     #[test]
+    fn compute_relative_coords_of_scanners() {
+        let scanner1 = Scanner {
+            id: 0,
+            beacons: vec![
+                [404, -588, -901],
+                [528, -643, 409],
+                [-838, 591, 734],
+                [390, -675, -793],
+                [-537, -823, -458],
+                [-485, -357, 347],
+                [-345, -311, 381],
+                [-661, -816, -575],
+                [-876, 649, 763],
+                [-618, -824, -621],
+                [553, 345, -567],
+                [474, 580, 667],
+                [-447, -329, 318],
+                [-584, 868, -557],
+                [544, -627, -890],
+                [564, 392, -477],
+                [455, 729, 728],
+                [-892, 524, 684],
+                [-689, 845, -530],
+                [423, -701, 434],
+                [7, -33, -71],
+                [630, 319, -379],
+                [443, 580, 662],
+                [-789, 900, -551],
+                [459, -707, 401],
+            ],
+        };
+        let scanner2 = Scanner {
+            id: 1,
+            beacons: vec![
+                [686, 422, 578],
+                [605, 423, 415],
+                [515, 917, -361],
+                [-336, 658, 858],
+                [95, 138, 22],
+                [-476, 619, 847],
+                [-340, -569, -846],
+                [567, -361, 727],
+                [-460, 603, -452],
+                [669, -402, 600],
+                [729, 430, 532],
+                [-500, -761, 534],
+                [-322, 571, 750],
+                [-466, -666, -811],
+                [-429, -592, 574],
+                [-355, 545, -477],
+                [703, -491, -529],
+                [-328, -685, 520],
+                [413, 935, -424],
+                [-391, 539, -444],
+                [586, -435, 557],
+                [-364, -763, -893],
+                [807, -499, -711],
+                [755, -354, -619],
+                [553, 889, -390],
+            ],
+        };
+
+        let scans = vec![scanner1.clone(), scanner2.clone()];
+
+        let mbeacons = compute_matching_beacons(&compute_matchings(&scans)[0]);
+
+        let (rot, trans, centroid) = compute_transform(&scanner1, &scanner2, &mbeacons);
+
+        for (f, t) in &mbeacons {
+            assert_eq!(
+                scanner1.beacons[*f],
+                plus(rot.rotate(scanner2.beacons[*t]), trans)
+            );
+        }
+
+        println!("{:?}, {:?} {:?}", mbeacons, rot, trans);
+
+        assert_eq!(
+            [68, -1246, -43],
+            relative_position(&rot, &trans, &centroid, &scanner2)
+        );
+    }
+
+    #[test]
     fn compute_max_distance() {
-        let scanners_pos: Vec<(usize, Pos)> = vec![
+        let scanners_pos: Vec<(usize, Point)> = vec![
             (0, [0, 0, 0]),
             (15, [-202, -596, -600]),
             (19, [35, 40, 1147]),
