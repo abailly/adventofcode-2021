@@ -14,20 +14,20 @@ enum Pos {
 #[derive(Debug, Clone, PartialEq, Eq, Copy)]
 struct Cuboid {
     pos: Pos,
-    lb: (i32, i32, i32),
-    ub: (i32, i32, i32),
+    lb: (i64, i64, i64),
+    ub: (i64, i64, i64),
 }
 
-fn size(c: &Cuboid) -> i32 {
+fn size(c: &Cuboid) -> i64 {
     (c.ub.0 - c.lb.0 + 1) * (c.ub.1 - c.lb.1 + 1) * (c.ub.2 - c.lb.2 + 1)
 }
 
-fn parse_range(s: &str) -> (i32, i32) {
+fn parse_range(s: &str) -> (i64, i64) {
     let cparts: Vec<&str> = s.split("=").collect::<Vec<&str>>()[1].split("..").collect();
 
     (
-        cparts[0].parse::<i32>().unwrap(),
-        cparts[1].parse::<i32>().unwrap(),
+        cparts[0].parse::<i64>().unwrap(),
+        cparts[1].parse::<i64>().unwrap(),
     )
 }
 
@@ -77,38 +77,27 @@ fn intersection(a: &Cuboid, b: &Cuboid) -> Option<Cuboid> {
     Some(Cuboid { pos: b.pos, lb, ub })
 }
 
-fn on_cubes(bounds: &(Vec<i32>, Vec<i32>, Vec<i32>), steps: &Vec<Cuboid>) -> i32 {
+fn on_cubes(bounds: &(Vec<i64>, Vec<i64>, Vec<i64>), steps: &Vec<Cuboid>) -> i64 {
     let (bx, by, bz) = bounds;
     println!("bounds {:?}", bounds);
     let mut cubes = vec![vec![vec![Off; bz.len()]; by.len()]; bx.len()];
     let mut num_ons = 0;
     for cube in steps {
-        if cube.lb.0 >= -50
-            && cube.ub.0 <= 51
-            && cube.lb.1 >= -50
-            && cube.ub.1 <= 51
-            && cube.lb.2 >= -50
-            && cube.ub.2 <= 51
-        {
-            println!("cube {:?}", cube);
-            for (i, x) in bx.iter().enumerate() {
-                for (j, y) in by.iter().enumerate() {
-                    for (k, z) in bz.iter().enumerate() {
-                        if *x >= cube.lb.0
-                            && *x < cube.ub.0
-                            && *y >= cube.lb.1
-                            && *y < cube.ub.1
-                            && *z >= cube.lb.2
-                            && *z < cube.ub.2
-                        {
-                            println!("setting {}:{} {}:{} {}:{} {:?}", i, x, j, y, k, z, cube.pos);
-                            cubes[i][j][k] = cube.pos;
-                        }
+        println!("cube {:?}", cube);
+        for (i, x) in bx.iter().enumerate() {
+            for (j, y) in by.iter().enumerate() {
+                for (k, z) in bz.iter().enumerate() {
+                    if *x >= cube.lb.0
+                        && *x < cube.ub.0
+                        && *y >= cube.lb.1
+                        && *y < cube.ub.1
+                        && *z >= cube.lb.2
+                        && *z < cube.ub.2
+                    {
+                        cubes[i][j][k] = cube.pos;
                     }
                 }
             }
-        } else {
-            println!("skipping {:?}", cube);
         }
     }
 
@@ -127,31 +116,23 @@ fn on_cubes(bounds: &(Vec<i32>, Vec<i32>, Vec<i32>), steps: &Vec<Cuboid>) -> i32
     num_ons
 }
 
-fn make_bounds(cuboids: &Vec<Cuboid>) -> (Vec<i32>, Vec<i32>, Vec<i32>) {
+fn make_bounds(cuboids: &Vec<Cuboid>) -> (Vec<i64>, Vec<i64>, Vec<i64>) {
     let mut vx = HashSet::new();
     let mut vy = HashSet::new();
     let mut vz = HashSet::new();
     for c in cuboids {
-        if c.lb.0 >= -50
-            && c.ub.0 <= 51
-            && c.lb.1 >= -50
-            && c.ub.1 <= 51
-            && c.lb.2 >= -50
-            && c.ub.2 <= 51
-        {
-            vx.insert(c.lb.0);
-            vx.insert(c.ub.0);
-            vy.insert(c.lb.1);
-            vy.insert(c.ub.1);
-            vz.insert(c.lb.2);
-            vz.insert(c.ub.2);
-        }
+        vx.insert(c.lb.0 as i64);
+        vx.insert(c.ub.0 as i64);
+        vy.insert(c.lb.1 as i64);
+        vy.insert(c.ub.1 as i64);
+        vz.insert(c.lb.2 as i64);
+        vz.insert(c.ub.2 as i64);
     }
-    let mut vvx: Vec<i32> = vec![];
+    let mut vvx: Vec<i64> = vec![];
     vvx.extend(vx);
-    let mut vvy: Vec<i32> = vec![];
+    let mut vvy: Vec<i64> = vec![];
     vvy.extend(vy);
-    let mut vvz: Vec<i32> = vec![];
+    let mut vvz: Vec<i64> = vec![];
     vvz.extend(vz);
     vvx.sort();
     vvy.sort();
@@ -170,7 +151,7 @@ fn main() {
     if let Ok(input) = read_to_string(&args[1]) {
         let nums: Vec<&str> = input.split("\n").filter(|s| !s.is_empty()).collect();
         let cuboid_steps: Vec<Cuboid> = nums.iter().map(|s| parse_cuboid_step(s)).collect();
-        let cube_bounds: (Vec<i32>, Vec<i32>, Vec<i32>) = make_bounds(&cuboid_steps);
+        let cube_bounds: (Vec<i64>, Vec<i64>, Vec<i64>) = make_bounds(&cuboid_steps);
         let num_on_cubes = on_cubes(&cube_bounds, &cuboid_steps);
         println!("num on cubes: {:?}", num_on_cubes);
     } else {
