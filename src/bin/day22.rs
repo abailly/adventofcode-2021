@@ -1,4 +1,5 @@
 use crate::Pos::*;
+use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::convert::TryInto;
 use std::env;
@@ -77,25 +78,42 @@ fn intersection(a: &Cuboid, b: &Cuboid) -> Option<Cuboid> {
     Some(Cuboid { pos: b.pos, lb, ub })
 }
 
-fn on_cubes(bounds: &(Vec<i64>, Vec<i64>, Vec<i64>), steps: &Vec<Cuboid>) -> i64 {
+fn make_treemap(
+    bounds: &(Vec<i64>, Vec<i64>, Vec<i64>),
+) -> (
+    BTreeMap<i64, usize>,
+    BTreeMap<i64, usize>,
+    BTreeMap<i64, usize>,
+) {
     let (bx, by, bz) = bounds;
+    let mut btx = BTreeMap::new();
+    for (i, v) in bx.iter().enumerate() {
+        btx.insert(*v, i);
+    }
+    let mut bty = BTreeMap::new();
+    for (i, v) in by.iter().enumerate() {
+        bty.insert(*v, i);
+    }
+    let mut btz = BTreeMap::new();
+    for (i, v) in bz.iter().enumerate() {
+        btz.insert(*v, i);
+    }
+
+    (btx, bty, btz)
+}
+
+fn on_cubes(bounds: &(Vec<i64>, Vec<i64>, Vec<i64>), steps: &Vec<Cuboid>) -> i64 {
+    let (bvx, bvy, bvz) = bounds;
+    let (bx, by, bz) = make_treemap(bounds);
     println!("bounds {:?}", bounds);
     let mut cubes = vec![vec![vec![Off; bz.len()]; by.len()]; bx.len()];
     let mut num_ons = 0;
     for cube in steps {
         println!("cube {:?}", cube);
-        for (i, x) in bx.iter().enumerate() {
-            for (j, y) in by.iter().enumerate() {
-                for (k, z) in bz.iter().enumerate() {
-                    if *x >= cube.lb.0
-                        && *x < cube.ub.0
-                        && *y >= cube.lb.1
-                        && *y < cube.ub.1
-                        && *z >= cube.lb.2
-                        && *z < cube.ub.2
-                    {
-                        cubes[i][j][k] = cube.pos;
-                    }
+        for (_, i) in bx.range(cube.lb.0..cube.ub.0) {
+            for (_, j) in by.range(cube.lb.1..cube.ub.1) {
+                for (_, k) in bz.range(cube.lb.2..cube.ub.2) {
+                    cubes[*i][*j][*k] = cube.pos;
                 }
             }
         }
@@ -105,9 +123,9 @@ fn on_cubes(bounds: &(Vec<i64>, Vec<i64>, Vec<i64>), steps: &Vec<Cuboid>) -> i64
         for j in 0..by.len() - 1 {
             for k in 0..bz.len() - 1 {
                 if cubes[i][j][k] == On {
-                    let sx = (bx[i + 1] - bx[i]);
-                    let sy = (by[j + 1] - by[j]);
-                    let sz = (bz[k + 1] - bz[k]);
+                    let sx = bvx[i + 1] - bvx[i];
+                    let sy = bvy[j + 1] - bvy[j];
+                    let sz = bvz[k + 1] - bvz[k];
                     num_ons += sx * sy * sz;
                 }
             }
