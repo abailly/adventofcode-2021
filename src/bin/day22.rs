@@ -1,7 +1,6 @@
 use crate::Pos::*;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
-use std::convert::TryInto;
 use std::env;
 use std::fs::read_to_string;
 use std::process;
@@ -17,10 +16,6 @@ struct Cuboid {
     pos: Pos,
     lb: (i64, i64, i64),
     ub: (i64, i64, i64),
-}
-
-fn size(c: &Cuboid) -> i64 {
-    (c.ub.0 - c.lb.0 + 1) * (c.ub.1 - c.lb.1 + 1) * (c.ub.2 - c.lb.2 + 1)
 }
 
 fn parse_range(s: &str) -> (i64, i64) {
@@ -46,36 +41,28 @@ fn parse_cuboid_step(s: &str) -> Cuboid {
     }
 }
 
-fn order<'a>(a: &'a Cuboid, b: &'a Cuboid) -> (&'a Cuboid, &'a Cuboid) {
-    match a.lb.cmp(&b.lb) {
-        Greater => (b, a),
-        _ => (a, b),
+fn make_treemap(
+    bounds: &(Vec<i64>, Vec<i64>, Vec<i64>),
+) -> (
+    BTreeMap<i64, usize>,
+    BTreeMap<i64, usize>,
+    BTreeMap<i64, usize>,
+) {
+    let (bx, by, bz) = bounds;
+    let mut btx = BTreeMap::new();
+    for (i, v) in bx.iter().enumerate() {
+        btx.insert(*v, i);
     }
-}
-
-fn intersect(a: &Cuboid, b: &Cuboid) -> bool {
-    a.lb.0 <= b.ub.0
-        && a.lb.1 <= b.ub.1
-        && a.lb.2 <= b.ub.1
-        && a.ub.0 >= b.lb.0
-        && a.ub.1 >= b.lb.1
-        && a.ub.2 >= b.lb.2
-}
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-enum Step {
-    InitStep,
-    Step(Box<Step>, Cuboid, Cuboid, Option<Cuboid>),
-}
-
-fn intersection(a: &Cuboid, b: &Cuboid) -> Option<Cuboid> {
-    if !intersect(a, b) {
-        return None;
+    let mut bty = BTreeMap::new();
+    for (i, v) in by.iter().enumerate() {
+        bty.insert(*v, i);
     }
-    let lb = (a.lb.0.max(b.lb.0), a.lb.1.max(b.lb.1), a.lb.1.max(b.lb.1));
-    let ub = (a.ub.0.min(b.ub.0), a.ub.1.min(b.ub.1), a.ub.1.min(b.ub.1));
+    let mut btz = BTreeMap::new();
+    for (i, v) in bz.iter().enumerate() {
+        btz.insert(*v, i);
+    }
 
-    Some(Cuboid { pos: b.pos, lb, ub })
+    (btx, bty, btz)
 }
 
 fn make_treemap(
@@ -174,86 +161,5 @@ fn main() {
         println!("num on cubes: {:?}", num_on_cubes);
     } else {
         println!("fail to parse {}", args[1]);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn can_check_apply_step() {
-        let cuboid1 = Cuboid {
-            pos: Pos::On,
-            lb: (2, -22, -23),
-            ub: (47, 22, 27),
-        };
-        let cuboid2 = Cuboid {
-            pos: Pos::On,
-            lb: (-27, -28, -21),
-            ub: (23, 26, 29),
-        };
-
-        let cuboid3 = Cuboid {
-            pos: Pos::On,
-            lb: (-27, -28, -25),
-            ub: (50, 26, 29),
-        };
-        assert_eq!(intersect(&cuboid1, &cuboid2), true);
-        assert_eq!(intersect(&cuboid2, &cuboid1), true);
-        assert_eq!(intersect(&cuboid1, &cuboid3), true);
-    }
-
-    #[test]
-    fn can_compute_intersection_of_2_cuboids_as_a_cuboid() {
-        let cuboid1 = Cuboid {
-            pos: Pos::On,
-            lb: (10, 10, 10),
-            ub: (12, 12, 12),
-        };
-
-        let cuboid2 = Cuboid {
-            pos: Pos::On,
-            lb: (11, 11, 11),
-            ub: (13, 13, 13),
-        };
-
-        let cuboid3 = Cuboid {
-            pos: Pos::On,
-            lb: (11, 11, 11),
-            ub: (12, 12, 12),
-        };
-
-        assert_eq!(intersection(&cuboid1, &cuboid2), Some(cuboid3));
-    }
-
-    #[test]
-    fn can_compute_number_of_on_cubes_for_a_sequence_of_steps() {
-        let cuboid1 = Cuboid {
-            pos: Pos::On,
-            lb: (10, 10, 10),
-            ub: (12, 12, 12),
-        };
-
-        let cuboid2 = Cuboid {
-            pos: Pos::On,
-            lb: (11, 11, 11),
-            ub: (13, 13, 13),
-        };
-
-        let cuboid3 = Cuboid {
-            pos: Pos::Off,
-            lb: (9, 9, 9),
-            ub: (11, 11, 11),
-        };
-
-        let cuboid4 = Cuboid {
-            pos: Pos::On,
-            lb: (9, 9, 9),
-            ub: (11, 11, 11),
-        };
-
-        let steps = vec![&cuboid1, &cuboid2, &cuboid3, &cuboid4];
-        assert_eq!(on_cubes(&steps), 39);
     }
 }
