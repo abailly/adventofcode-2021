@@ -41,7 +41,7 @@ fn parse_cuboid_step(s: &str) -> Cuboid {
     Cuboid {
         pos,
         lb: (xrange.0, yrange.0, zrange.0),
-        ub: (xrange.1, yrange.1, zrange.1),
+        ub: (xrange.1 + 1, yrange.1 + 1, zrange.1 + 1),
     }
 }
 
@@ -84,22 +84,24 @@ fn on_cubes(bounds: &(Vec<i32>, Vec<i32>, Vec<i32>), steps: &Vec<Cuboid>) -> i32
     let mut num_ons = 0;
     for cube in steps {
         if cube.lb.0 >= -50
-            && cube.ub.0 <= 50
+            && cube.ub.0 <= 51
             && cube.lb.1 >= -50
-            && cube.ub.1 <= 50
+            && cube.ub.1 <= 51
             && cube.lb.2 >= -50
-            && cube.ub.2 <= 50
+            && cube.ub.2 <= 51
         {
+            println!("cube {:?}", cube);
             for (i, x) in bx.iter().enumerate() {
                 for (j, y) in by.iter().enumerate() {
                     for (k, z) in bz.iter().enumerate() {
                         if *x >= cube.lb.0
-                            && *x <= cube.ub.0
+                            && *x < cube.ub.0
                             && *y >= cube.lb.1
-                            && *y <= cube.ub.1
+                            && *y < cube.ub.1
                             && *z >= cube.lb.2
-                            && *z <= cube.ub.2
+                            && *z < cube.ub.2
                         {
+                            println!("setting {}:{} {}:{} {}:{} {:?}", i, x, j, y, k, z, cube.pos);
                             cubes[i][j][k] = cube.pos;
                         }
                     }
@@ -110,11 +112,14 @@ fn on_cubes(bounds: &(Vec<i32>, Vec<i32>, Vec<i32>), steps: &Vec<Cuboid>) -> i32
         }
     }
 
-    for i in 1..bx.len() {
-        for j in 1..by.len() {
-            for k in 1..bz.len() {
+    for i in 0..bx.len() - 1 {
+        for j in 0..by.len() - 1 {
+            for k in 0..bz.len() - 1 {
                 if cubes[i][j][k] == On {
-                    num_ons += (bx[i] - bx[i - 1]) * (by[j] - by[j - 1]) * (bz[k] - bz[k - 1]);
+                    let sx = (bx[i + 1] - bx[i]);
+                    let sy = (by[j + 1] - by[j]);
+                    let sz = (bz[k + 1] - bz[k]);
+                    num_ons += sx * sy * sz;
                 }
             }
         }
@@ -128,11 +133,11 @@ fn make_bounds(cuboids: &Vec<Cuboid>) -> (Vec<i32>, Vec<i32>, Vec<i32>) {
     let mut vz = HashSet::new();
     for c in cuboids {
         if c.lb.0 >= -50
-            && c.ub.0 <= 50
+            && c.ub.0 <= 51
             && c.lb.1 >= -50
-            && c.ub.1 <= 50
+            && c.ub.1 <= 51
             && c.lb.2 >= -50
-            && c.ub.2 <= 50
+            && c.ub.2 <= 51
         {
             vx.insert(c.lb.0);
             vx.insert(c.ub.0);
