@@ -181,7 +181,8 @@ fn lower_bound(a: &AST) -> i64 {
 }
 
 fn mknode(op: Op, a: &AST, b: &AST) -> AST {
-    match op {
+    println!("mknode {} {} {}", op, a, b);
+    let res = match op {
         Mu => match (a, b) {
             (Leaf(V(0)), _) => Leaf(V(0)),
             (_, Leaf(V(0))) => Leaf(V(0)),
@@ -238,8 +239,8 @@ fn mknode(op: Op, a: &AST, b: &AST) -> AST {
         Mo => match (a, b) {
             (Leaf(V(x)), Leaf(V(y))) => Leaf(V(x % y)),
             (_, Leaf(V(y))) if upper_bound(a) < *y => a.clone(),
-            (Node(Ad, x, y), Leaf(V(_))) => mknode(Ad, &mknode(Mo, x, b), &mknode(Mo, y, b)),
-            (Node(Mu, x, y), Leaf(V(_))) => mknode(Mu, &mknode(Mo, x, b), &mknode(Mo, y, b)),
+            // (Node(Ad, x, y), Leaf(V(_))) => mknode(Ad, &mknode(Mo, x, b), &mknode(Mo, y, b)),
+            // (Node(Mu, x, y), Leaf(V(_))) => mknode(Mu, &mknode(Mo, x, b), &mknode(Mo, y, b)),
             _ => Node(Mo, Box::new(a.clone()), Box::new(b.clone())),
         },
         Eq => match (a, b) {
@@ -258,7 +259,10 @@ fn mknode(op: Op, a: &AST, b: &AST) -> AST {
                 }
             }
         },
-    }
+    };
+
+    println!(" = {}", res);
+    res
 }
 
 fn abstract_process(alu: &AbsALU, inst: Inst) -> AbsALU {
@@ -300,6 +304,18 @@ fn abstract_process(alu: &AbsALU, inst: Inst) -> AbsALU {
 fn abstract_interpret(prog: &Vec<Inst>, start: &AbsALU) -> AbsALU {
     prog.iter()
         .fold(start.clone(), |alu, inst| abstract_process(&alu, *inst))
+}
+
+fn eval(alu: &AbsALU, input: &Vec<u8>) -> ALU {
+    let mut res = ALU {
+        x: 0,
+        y: 0,
+        z: 0,
+        w: 0,
+        input: input.to_vec(),
+    };
+
+    res
 }
 
 fn read(alu: &ALU, addr: &Addr) -> i64 {
@@ -642,5 +658,36 @@ fn main() {
 
     let num = args[1].parse::<usize>().unwrap();
     let res = abstract_interpret(&PROGRAM[0..num].to_vec(), &init);
-    println!("min energy: {}", res);
+    println!("ALU: {}", res);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn symbolic_evaluation_matches_actual_evaluation() {
+        let data = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 1, 6, 7, 8, 9];
+        let concrete_init = ALU {
+            x: 0,
+            y: 0,
+            z: 0,
+            w: 0,
+            input: data.clone(),
+        };
+        let concrete_eval = compute_result(&PROGRAM.to_vec(), concrete_init);
+
+        let sym_init = AbsALU {
+            x: Leaf(V(0)),
+            y: Leaf(V(0)),
+            z: Leaf(V(0)),
+            w: Leaf(V(0)),
+        };
+        let sym_eval = abstract_interpret(&PROGRAM.to_vec(), &sym_init);
+
+        let concrete_sym = eval(&sym_eval, &data.clone());
+
+        assert_eq!(concrete_eval.z, 3349838);
+        assert_eq!(concrete_eval.z, concrete_sym.z);
+    }
 }
