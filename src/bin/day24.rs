@@ -693,15 +693,26 @@ fn solve_ast(eq: &AST, tgt: i64) -> Vec<(u8, i64)> {
             }
         }
     }
+    res.sort_by(|a, b| b.cmp(a));
     res
 }
 
 /// find sequence of inputs that solve the given system of equations
-fn solve(eqs: &mut Vec<AST>) -> Vec<u8> {
-    if let Some(ast) = eqs.pop() {
-        println!("solutions: {:?}", solve_ast(&ast, 0));
+fn solve(eqs: &mut Vec<AST>, goal: i64, res: &mut Vec<u8>) {
+    if eqs.is_empty() {
+        return;
     }
-    vec![]
+    if let Some(ast) = eqs.pop() {
+        let solutions = solve_ast(&ast, goal);
+        println!("solving for {} = {}\n {:?}", ast, goal, solutions);
+        for (i, z) in solutions {
+            res.insert(0, i);
+            println!("exploring solution {} {:?}", z, res);
+            solve(eqs, z, res);
+            res.remove(0);
+        }
+        eqs.push(ast);
+    }
 }
 
 fn main() {
@@ -722,7 +733,8 @@ fn main() {
         println!("z: {}", res.z);
     }
 
-    let res = solve(&mut zs);
+    let mut res = vec![];
+    solve(&mut zs, 0, &mut res);
 
     println!("result: {:?}", res);
 }
