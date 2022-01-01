@@ -203,11 +203,7 @@ fn mknode(op: Op, a: &AST, b: &AST) -> AST {
                 // println!("checking distributivity");
                 let ny = mknode(Mu, b, y);
                 let nx = mknode(Mu, b, x);
-                if depth(&ny) < depth(&nx) {
-                    Node(Ad, Box::new(ny), x.clone())
-                } else {
-                    Node(Ad, Box::new(nx), y.clone())
-                }
+                Node(Ad, Box::new(ny), Box::new(nx))
             }
             (Leaf(V(_)), Node(Ad, _, _)) => mknode(Mu, b, a),
             (Leaf(V(x)), Leaf(V(y))) => Leaf(V(x * y)),
@@ -307,7 +303,27 @@ fn abstract_interpret(prog: &Vec<Inst>, start: &AbsALU) -> AbsALU {
 }
 
 fn eval_ast(ast: &AST, input: &Vec<u8>) -> i64 {
-    0
+    match ast {
+        Node(Ad, x, y) => eval_ast(&x, input) + eval_ast(&y, input),
+        Node(Mu, x, y) => eval_ast(&x, input) * eval_ast(&y, input),
+        Node(Di, x, y) => eval_ast(&x, input) / eval_ast(&y, input),
+        Node(Mo, x, y) => eval_ast(&x, input) % eval_ast(&y, input),
+        Node(Eq, x, y) => {
+            let ex = eval_ast(&x, input);
+            let ey = eval_ast(&y, input);
+            if ex == ey {
+                1
+            } else {
+                0
+            }
+        }
+        Leaf(I(i)) => input[*i].into(),
+        Leaf(V(x)) => *x,
+        _ => {
+            panic!("should never happen");
+            0
+        }
+    }
 }
 
 fn eval(alu: &AbsALU, input: &Vec<u8>) -> ALU {
@@ -392,8 +408,9 @@ fn process(alu: &ALU, inst: &Inst) -> ALU {
     new_alu
 }
 
-fn compute_result(prog: &Vec<Inst>, start: ALU) -> ALU {
-    prog.iter().fold(start, |alu, inst| process(&alu, inst))
+fn compute_result(prog: &Vec<Inst>, start: &ALU) -> ALU {
+    prog.iter()
+        .fold(start.clone(), |alu, inst| process(&alu, inst))
 }
 
 static PROGRAM: [Inst; 252] = [
@@ -679,19 +696,21 @@ mod tests {
             w: 0,
             input: data.clone(),
         };
-        let concrete_eval = compute_result(&PROGRAM.to_vec(), concrete_init);
-
         let sym_init = AbsALU {
             x: Leaf(V(0)),
             y: Leaf(V(0)),
             z: Leaf(V(0)),
             w: Leaf(V(0)),
         };
-        let sym_eval = abstract_interpret(&PROGRAM.to_vec(), &sym_init);
+        for i in 0..252 {
+            println!("checking equivalence until {}", i);
+            let concrete_eval = compute_result(&PROGRAM[0..i].to_vec(), &concrete_init);
+            let sym_eval = abstract_interpret(&PROGRAM[0..i].to_vec(), &sym_init);
+            let concrete_sym = eval(&sym_eval, &data.clone());
 
-        let concrete_sym = eval(&sym_eval, &data.clone());
-
-        assert_eq!(concrete_eval.z, 3349838);
-        assert_eq!(concrete_eval.z, concrete_sym.z);
+            println!("ALU: {:?}", concrete_eval);
+            println!("SymALU: {}", sym_eval);
+            assert_eq!(concrete_eval.z, concrete_sym.z);
+        }
     }
 }
