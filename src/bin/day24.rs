@@ -316,15 +316,15 @@ fn abstract_interpret(prog: &Vec<Inst>, start: &AbsALU) -> AbsALU {
         .fold(start.clone(), |alu, inst| abstract_process(&alu, *inst))
 }
 
-fn eval_ast(ast: &AST, input: &Vec<u8>) -> i64 {
+fn eval_ast(ast: &AST, input: &Vec<u8>, resolve: fn(Addr) -> i64) -> i64 {
     match ast {
-        Node(Ad, x, y) => eval_ast(&x, input) + eval_ast(&y, input),
-        Node(Mu, x, y) => eval_ast(&x, input) * eval_ast(&y, input),
-        Node(Di, x, y) => eval_ast(&x, input) / eval_ast(&y, input),
-        Node(Mo, x, y) => eval_ast(&x, input) % eval_ast(&y, input),
+        Node(Ad, x, y) => eval_ast(&x, input, resolve) + eval_ast(&y, input, resolve),
+        Node(Mu, x, y) => eval_ast(&x, input, resolve) * eval_ast(&y, input, resolve),
+        Node(Di, x, y) => eval_ast(&x, input, resolve) / eval_ast(&y, input, resolve),
+        Node(Mo, x, y) => eval_ast(&x, input, resolve) % eval_ast(&y, input, resolve),
         Node(Eq, x, y) => {
-            let ex = eval_ast(&x, input);
-            let ey = eval_ast(&y, input);
+            let ex = eval_ast(&x, input, resolve);
+            let ey = eval_ast(&y, input, resolve);
             if ex == ey {
                 1
             } else {
@@ -333,19 +333,16 @@ fn eval_ast(ast: &AST, input: &Vec<u8>) -> i64 {
         }
         Leaf(I(i)) => input[*i].into(),
         Leaf(V(x)) => *x,
-        _ => {
-            panic!("should never happen");
-            0
-        }
+        Leaf(A(ad)) => resolve(*ad),
     }
 }
 
-fn eval(alu: &AbsALU, input: &Vec<u8>) -> ALU {
+fn eval(alu: &AbsALU, input: &Vec<u8>, resolve: fn(Addr) -> i64) -> ALU {
     let mut res = ALU {
-        x: eval_ast(&alu.x, &input),
-        y: eval_ast(&alu.y, &input),
-        z: eval_ast(&alu.z, &input),
-        w: eval_ast(&alu.w, &input),
+        x: eval_ast(&alu.x, &input, resolve),
+        y: eval_ast(&alu.y, &input, resolve),
+        z: eval_ast(&alu.z, &input, resolve),
+        w: eval_ast(&alu.w, &input, resolve),
         input: input.to_vec(),
     };
 
@@ -682,6 +679,17 @@ static PROGRAM: [Inst; 252] = [
     Add(Z, A(Y)),   // Z = Z + Y
 ];
 
+/// Given a single equation with a single input and Z as unknowns
+/// find all pairs of solutions
+fn solve_ast(eq: &AST, tgt: i64) -> Vec<(u8, i64)> {
+    vec![]
+}
+
+/// find sequence of inputs that solve the given system of equations
+fn solve(eqs: &Vec<AST>) -> Vec<u8> {
+    vec![]
+}
+
 fn main() {
     let init = AbsALU {
         x: Leaf(A(X)),
@@ -693,11 +701,16 @@ fn main() {
 
     let lb = args[1].parse::<usize>().unwrap();
     let ub = args[2].parse::<usize>().unwrap();
-    let res = abstract_interpret(&PROGRAM[lb..ub].to_vec(), &init);
+    let mut zs = vec![];
     for i in 0..14 {
         let res = abstract_interpret(&PROGRAM[i * 18..(i + 1) * 18].to_vec(), &init);
-        println!("ALU: {}", res);
+        zs.push(res.z.clone());
+        println!("z: {}", res.z);
     }
+
+    let res = solve(&zs);
+
+    println!("result: {:?}", res);
 }
 
 #[cfg(test)]
@@ -720,11 +733,14 @@ mod tests {
             z: Leaf(V(0)),
             w: Leaf(V(0)),
         };
+
+        let resolve: fn(Addr) -> i64 = |_| 0;
+
         for i in 0..252 {
             println!("checking equivalence until {}", i);
             let concrete_eval = compute_result(&PROGRAM[0..i].to_vec(), &concrete_init);
             let sym_eval = abstract_interpret(&PROGRAM[0..i].to_vec(), &sym_init);
-            let concrete_sym = eval(&sym_eval, &data.clone());
+            let concrete_sym = eval(&sym_eval, &data.clone(), resolve);
 
             println!("ALU: {:?}", concrete_eval);
             println!("SymALU: {}", sym_eval);
