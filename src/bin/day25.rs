@@ -9,6 +9,7 @@ enum Cuke {
     S,
     O,
 }
+
 fn to_cucumbers(s: &str) -> Vec<Cuke> {
     s.chars()
         .filter_map(|c| match c {
@@ -94,19 +95,5 @@ fn main() {
         let mut cucumbers = nums.iter().map(|s| to_cucumbers(s)).collect();
         let result = move_until_still(&mut cucumbers);
         println!("steps {}", result);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn count_steps_to_stillness() {
-        println!("{}", &msg);
-        // expand input into a window with 3 more default cells on each side
-        let output = expand(&msg, &sample_enhance);
-
-        println!("{}", &output);
     }
 }

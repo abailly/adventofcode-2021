@@ -306,12 +306,16 @@ fn abstract_interpret(prog: &Vec<Inst>, start: &AbsALU) -> AbsALU {
         .fold(start.clone(), |alu, inst| abstract_process(&alu, *inst))
 }
 
+fn eval_ast(ast: &AST, input: &Vec<u8>) -> i64 {
+    0
+}
+
 fn eval(alu: &AbsALU, input: &Vec<u8>) -> ALU {
     let mut res = ALU {
-        x: 0,
-        y: 0,
-        z: 0,
-        w: 0,
+        x: eval_ast(&alu.x, &input),
+        y: eval_ast(&alu.y, &input),
+        z: eval_ast(&alu.z, &input),
+        w: eval_ast(&alu.w, &input),
         input: input.to_vec(),
     };
 
