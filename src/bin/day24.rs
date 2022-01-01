@@ -4,6 +4,7 @@ use crate::Op::*;
 use crate::Operand::*;
 use crate::AST::*;
 use core::i64::MAX;
+use core::i64::MIN;
 use std::collections::HashMap;
 use std::env;
 use std::fmt;
@@ -176,12 +177,11 @@ fn lower_bound(a: &AST) -> i64 {
         Node(Eq, _, _) => 0,
         Leaf(I(_)) => 1,
         Leaf(V(x)) => *x,
-        _ => MAX,
+        _ => MIN,
     }
 }
 
 fn mknode(op: Op, a: &AST, b: &AST) -> AST {
-    println!("mknode {} {} {}", op, a, b);
     let res = match op {
         Mu => match (a, b) {
             (Leaf(V(0)), _) => Leaf(V(0)),
@@ -189,15 +189,18 @@ fn mknode(op: Op, a: &AST, b: &AST) -> AST {
             (Leaf(V(1)), _) => b.clone(),
             (_, Leaf(V(1))) => a.clone(),
 
-            // commutativity
-            (Leaf(V(z)), Node(Mu, y, x)) => match **x {
-                Leaf(V(t)) => Node(Mu, y.clone(), Box::new(Leaf(V(z * t)))),
-                _ => Node(Mu, Box::new(a.clone()), Box::new(b.clone())),
-            },
-            (Node(Mu, y, x), Leaf(V(z))) => match **x {
-                Leaf(V(t)) => Node(Mu, y.clone(), Box::new(Leaf(V(z * t)))),
-                _ => Node(Mu, Box::new(a.clone()), Box::new(b.clone())),
-            },
+            // associativity
+            (_, Node(Mu, y, x)) => {
+                // println!("checking associativity");
+                let ny = mknode(Mu, a, y);
+                let nx = mknode(Mu, a, x);
+                if depth(&ny) < depth(&nx) {
+                    Node(Mu, Box::new(ny), x.clone())
+                } else {
+                    Node(Mu, Box::new(nx), y.clone())
+                }
+            }
+            (Node(Mu, _, _), Leaf(V(_))) => mknode(Mu, b, a),
             // distributivity
             (Node(Ad, y, x), Leaf(V(_))) => {
                 // println!("checking distributivity");
@@ -230,6 +233,19 @@ fn mknode(op: Op, a: &AST, b: &AST) -> AST {
         Di => match (a, b) {
             (_, Leaf(V(1))) => a.clone(),
             (Leaf(V(x)), Leaf(V(y))) => Leaf(V(x / y)),
+            (Node(Mu, y, x), z) => {
+                if *z == **x {
+                    *y.clone()
+                } else {
+                    let ny = mknode(Di, y, z);
+                    let nx = mknode(Di, x, z);
+                    if depth(&ny) < depth(&nx) {
+                        Node(Mu, Box::new(ny), x.clone())
+                    } else {
+                        Node(Mu, Box::new(nx), y.clone())
+                    }
+                }
+            }
             _ => Node(Di, Box::new(a.clone()), Box::new(b.clone())),
         },
         Mo => match (a, b) {
@@ -256,8 +272,6 @@ fn mknode(op: Op, a: &AST, b: &AST) -> AST {
             }
         },
     };
-
-    println!(" = {}", res);
     res
 }
 
@@ -649,15 +663,15 @@ static PROGRAM: [Inst; 252] = [
     Mul(Y, A(X)),
     Add(Z, A(Y)),
     Inp(W, I(13)),  // W = ?
-    Mul(X, V(0)),   // X = X * 0
-    Add(X, A(Z)),   // X = X + Z
-    Mod(X, V(26)),  // X = X + 26
+    Mul(X, V(0)),   // X = 0
+    Add(X, A(Z)),   // X = Z
+    Mod(X, V(26)),  // X = Z + 26
     Div(Z, V(26)),  // Z = Z / 26
     Add(X, V(-11)), // X = X - 11
     Eql(X, A(W)),   // X = if X == W then 1 else 0
     Eql(X, V(0)),   // X = if X == 0 then 1 else 0
-    Mul(Y, V(0)),   // Y = Y * 0
-    Add(Y, V(25)),  // Y = Y + 25
+    Mul(Y, V(0)),   // Y = 0
+    Add(Y, V(25)),  // Y = 25
     Mul(Y, A(X)),   // Y = Y * X
     Add(Y, V(1)),   // Y = Y + 1
     Mul(Z, A(Y)),   // Z = Z + Y
@@ -670,16 +684,20 @@ static PROGRAM: [Inst; 252] = [
 
 fn main() {
     let init = AbsALU {
-        x: Leaf(V(0)),
-        y: Leaf(V(0)),
-        z: Leaf(V(0)),
-        w: Leaf(V(0)),
+        x: Leaf(A(X)),
+        y: Leaf(A(Y)),
+        z: Leaf(A(Z)),
+        w: Leaf(A(W)),
     };
     let args: Vec<String> = env::args().collect();
 
-    let num = args[1].parse::<usize>().unwrap();
-    let res = abstract_interpret(&PROGRAM[0..num].to_vec(), &init);
-    println!("ALU: {}", res);
+    let lb = args[1].parse::<usize>().unwrap();
+    let ub = args[2].parse::<usize>().unwrap();
+    let res = abstract_interpret(&PROGRAM[lb..ub].to_vec(), &init);
+    for i in 0..14 {
+        let res = abstract_interpret(&PROGRAM[i * 18..(i + 1) * 18].to_vec(), &init);
+        println!("ALU: {}", res);
+    }
 }
 
 #[cfg(test)]
