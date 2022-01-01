@@ -316,7 +316,7 @@ fn abstract_interpret(prog: &Vec<Inst>, start: &AbsALU) -> AbsALU {
         .fold(start.clone(), |alu, inst| abstract_process(&alu, *inst))
 }
 
-fn eval_ast(ast: &AST, input: &Vec<u8>, resolve: fn(Addr) -> i64) -> i64 {
+fn eval_ast(ast: &AST, input: &Vec<u8>, resolve: &HashMap<Addr, i64>) -> i64 {
     match ast {
         Node(Ad, x, y) => eval_ast(&x, input, resolve) + eval_ast(&y, input, resolve),
         Node(Mu, x, y) => eval_ast(&x, input, resolve) * eval_ast(&y, input, resolve),
@@ -333,11 +333,11 @@ fn eval_ast(ast: &AST, input: &Vec<u8>, resolve: fn(Addr) -> i64) -> i64 {
         }
         Leaf(I(i)) => input[*i].into(),
         Leaf(V(x)) => *x,
-        Leaf(A(ad)) => resolve(*ad),
+        Leaf(A(ad)) => *resolve.get(ad).unwrap(),
     }
 }
 
-fn eval(alu: &AbsALU, input: &Vec<u8>, resolve: fn(Addr) -> i64) -> ALU {
+fn eval(alu: &AbsALU, input: &Vec<u8>, resolve: &HashMap<Addr, i64>) -> ALU {
     let mut res = ALU {
         x: eval_ast(&alu.x, &input, resolve),
         y: eval_ast(&alu.y, &input, resolve),
@@ -682,11 +682,25 @@ static PROGRAM: [Inst; 252] = [
 /// Given a single equation with a single input and Z as unknowns
 /// find all pairs of solutions
 fn solve_ast(eq: &AST, tgt: i64) -> Vec<(u8, i64)> {
-    vec![]
+    let mut res = vec![];
+    for i in 1..10 {
+        let input = vec![i; 14];
+        for z in -100..100 {
+            let mut retz = HashMap::new();
+            retz.insert(Z, z);
+            if eval_ast(eq, &input, &retz) == tgt {
+                res.push((i, z));
+            }
+        }
+    }
+    res
 }
 
 /// find sequence of inputs that solve the given system of equations
-fn solve(eqs: &Vec<AST>) -> Vec<u8> {
+fn solve(eqs: &mut Vec<AST>) -> Vec<u8> {
+    if let Some(ast) = eqs.pop() {
+        println!("solutions: {:?}", solve_ast(&ast, 0));
+    }
     vec![]
 }
 
@@ -708,7 +722,7 @@ fn main() {
         println!("z: {}", res.z);
     }
 
-    let res = solve(&zs);
+    let res = solve(&mut zs);
 
     println!("result: {:?}", res);
 }
@@ -734,13 +748,17 @@ mod tests {
             w: Leaf(V(0)),
         };
 
-        let resolve: fn(Addr) -> i64 = |_| 0;
-
         for i in 0..252 {
+            let mut resolve = HashMap::new();
+            resolve.insert(X, 0);
+            resolve.insert(Y, 0);
+            resolve.insert(Z, 0);
+            resolve.insert(W, 0);
+
             println!("checking equivalence until {}", i);
             let concrete_eval = compute_result(&PROGRAM[0..i].to_vec(), &concrete_init);
             let sym_eval = abstract_interpret(&PROGRAM[0..i].to_vec(), &sym_init);
-            let concrete_sym = eval(&sym_eval, &data.clone(), resolve);
+            let concrete_sym = eval(&sym_eval, &data.clone(), &resolve);
 
             println!("ALU: {:?}", concrete_eval);
             println!("SymALU: {}", sym_eval);
