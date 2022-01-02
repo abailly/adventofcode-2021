@@ -5,6 +5,7 @@ use crate::Operand::*;
 use crate::AST::*;
 use core::i64::MAX;
 use core::i64::MIN;
+use num::pow;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::env;
@@ -769,7 +770,7 @@ fn solve(
 
 /// Transform a sequence of expressions for each stage of the ALU into
 /// Z3 equations and solve them
-fn solve_z3(eqs: &Vec<AST>) -> Vec<u8> {
+fn solve_z3(eqs: &Vec<AST>) -> Vec<Vec<u8>> {
     let cfg = Config::new();
     let ctx = Context::new(&cfg);
     let solver = Solver::new(&ctx);
@@ -794,13 +795,30 @@ fn solve_z3(eqs: &Vec<AST>) -> Vec<u8> {
     }
     // Z initial value is 0
     solver.assert(&ast::Int::new_const(&ctx, "Z_0")._eq(&zero));
-    assert_eq!(solver.check(), SatResult::Sat);
-    let model = solver.get_model().unwrap();
+
     let mut res = vec![];
-    for i in 0..14 {
-        let index = ast::Int::new_const(&ctx, format!("I_{}", i));
-        let v = model.eval(&index, true).unwrap().as_u64().unwrap();
-        res.push(v as u8);
+
+    while solver.check() == SatResult::Sat {
+        let model = solver.get_model().unwrap();
+        let mut sol = vec![];
+        for i in 0..14 {
+            let index = ast::Int::new_const(&ctx, format!("I_{}", i));
+            let v = model.eval(&index, true).unwrap().as_u64().unwrap();
+            sol.push(v as u8);
+        }
+        println!("solution {:?}", sol);
+        // add constraint to find larger solution to solver
+        let ctr = (0..14).fold((0, ast::Int::from_i64(&ctx, 0)), |(v, e), i| {
+            let exp = pow(10u64, 13 - i);
+            let nv = v + exp * sol[i] as u64;
+            let index = ast::Int::new_const(&ctx, format!("I_{}", i));
+            (nv, (e + index * ast::Int::from_u64(&ctx, exp)))
+        });
+        solver.push();
+        let nequation = ctr.1.gt(&ast::Int::from_u64(&ctx, ctr.0));
+        println!("eq: {:?}", nequation);
+        solver.assert(&nequation);
+        res.push(sol);
     }
     res
 }
@@ -827,15 +845,17 @@ fn main() {
 
     println!("result: {:?}", res);
     // verify result
-    let concrete_init = ALU {
-        x: 0,
-        y: 0,
-        z: 0,
-        w: 0,
-        input: res.clone(),
-    };
-    let concrete = compute_result(&PROGRAM.to_vec(), &concrete_init);
-    println!("eval : {:?}", concrete);
+    for input in res {
+        let concrete_init = ALU {
+            x: 0,
+            y: 0,
+            z: 0,
+            w: 0,
+            input: input.clone(),
+        };
+        let concrete = compute_result(&PROGRAM.to_vec(), &concrete_init);
+        println!("eval : {:?}", concrete);
+    }
 }
 
 fn to_z3<'a>(ast: &AST, depth: u8, ctx: &'a z3::Context) -> z3::ast::Int<'a> {
