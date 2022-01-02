@@ -709,6 +709,9 @@ fn solve(eqs: &mut Vec<AST>, goal: i64, res: &mut Vec<u8>) {
             res.insert(0, i);
             println!("exploring solution {} {:?}", z, res);
             solve(eqs, z, res);
+            if res.len() == 14 {
+                return;
+            }
             res.remove(0);
         }
         eqs.push(ast);
@@ -767,14 +770,29 @@ mod tests {
             resolve.insert(Z, 0);
             resolve.insert(W, 0);
 
-            println!("checking equivalence until {}", i);
             let concrete_eval = compute_result(&PROGRAM[0..i].to_vec(), &concrete_init);
             let sym_eval = abstract_interpret(&PROGRAM[0..i].to_vec(), &sym_init);
             let concrete_sym = eval(&sym_eval, &data.clone(), &resolve);
 
-            println!("ALU: {:?}", concrete_eval);
-            println!("SymALU: {}", sym_eval);
             assert_eq!(concrete_eval.z, concrete_sym.z);
         }
+
+        let mut z = 0;
+        let abs_init = AbsALU {
+            x: Leaf(A(X)),
+            y: Leaf(A(Y)),
+            z: Leaf(A(Z)),
+            w: Leaf(A(W)),
+        };
+
+        for i in 0..14 {
+            let az = abstract_interpret(&PROGRAM[i * 18..(i + 1) * 18].to_vec(), &abs_init);
+            println!("ast : {}", az);
+            let mut resolve = HashMap::new();
+            resolve.insert(Z, z);
+
+            z = eval_ast(&az.z, &data, &resolve);
+        }
+        assert_eq!(z, compute_result(&PROGRAM.to_vec(), &concrete_init).z);
     }
 }
