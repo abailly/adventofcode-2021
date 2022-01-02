@@ -12,7 +12,6 @@ use std::fmt;
 use std::fmt::Display;
 use z3::ast::{Ast, Bool};
 use z3::*;
-extern crate env_logger;
 #[macro_use]
 extern crate log;
 
@@ -768,6 +767,44 @@ fn solve(
     }
 }
 
+/// Transform a sequence of expressions for each stage of the ALU into
+/// Z3 equations and solve them
+fn solve_z3(eqs: &Vec<AST>) -> Vec<u8> {
+    let cfg = Config::new();
+    let ctx = Context::new(&cfg);
+    let solver = Solver::new(&ctx);
+    let zero = ast::Int::from_i64(&ctx, 0);
+    let nine = ast::Int::from_i64(&ctx, 9);
+
+    // all I_X are between 1 and 9
+    for i in 0..14 {
+        let index = ast::Int::new_const(&ctx, format!("I_{}", i));
+        solver.assert(&index.le(&nine));
+        solver.assert(&index.gt(&zero));
+    }
+
+    for (i, eq) in eqs.iter().enumerate() {
+        let expr = to_z3(eq, i as u8, &ctx);
+        if i == 13 {
+            solver.assert(&expr._eq(&zero));
+        } else {
+            let var = ast::Int::new_const(&ctx, format!("Z_{}", i + 1));
+            solver.assert(&expr._eq(&var));
+        }
+    }
+    // Z initial value is 0
+    solver.assert(&ast::Int::new_const(&ctx, "Z_0")._eq(&zero));
+    assert_eq!(solver.check(), SatResult::Sat);
+    let model = solver.get_model().unwrap();
+    let mut res = vec![];
+    for i in 0..14 {
+        let index = ast::Int::new_const(&ctx, format!("I_{}", i));
+        let v = model.eval(&index, true).unwrap().as_u64().unwrap();
+        res.push(v as u8);
+    }
+    res
+}
+
 fn main() {
     let init = AbsALU {
         x: Leaf(A(X)),
@@ -786,34 +823,34 @@ fn main() {
         println!("z: {}", res.z);
     }
 
-    let mut res: Vec<u8> = vec![];
-    let mut cache: HashSet<(u8, i64)> = HashSet::new();
-    println!(
-        "bounds {:?}",
-        zs.iter().fold((0, 0), |bds, eq| {
-            let mm = minmax(&eq, bds);
-            println!("z {:?} = {}", mm, eq);
-            mm
-        })
-    );
-    //solve(&mut zs, &mut cache, 0, 0, &mut res);
+    let res = solve_z3(&zs);
 
     println!("result: {:?}", res);
+    // verify result
+    let concrete_init = ALU {
+        x: 0,
+        y: 0,
+        z: 0,
+        w: 0,
+        input: res.clone(),
+    };
+    let concrete = compute_result(&PROGRAM.to_vec(), &concrete_init);
+    println!("eval : {:?}", concrete);
 }
 
-fn build_equation<'a>(ast: &AST, ctx: &'a z3::Context) -> z3::ast::Int<'a> {
+fn to_z3<'a>(ast: &AST, depth: u8, ctx: &'a z3::Context) -> z3::ast::Int<'a> {
     match ast {
-        Node(Ad, x, y) => ast::Int::add(ctx, &[&build_equation(x, ctx), &build_equation(y, ctx)]),
-        Node(Mu, x, y) => ast::Int::mul(ctx, &[&build_equation(x, ctx), &build_equation(y, ctx)]),
-        Node(Di, x, y) => build_equation(x, ctx).div(&build_equation(y, ctx)),
-        Node(Mo, x, y) => build_equation(x, ctx).rem(&build_equation(y, ctx)),
+        Node(Ad, x, y) => ast::Int::add(ctx, &[&to_z3(x, depth, ctx), &to_z3(y, depth, ctx)]),
+        Node(Mu, x, y) => ast::Int::mul(ctx, &[&to_z3(x, depth, ctx), &to_z3(y, depth, ctx)]),
+        Node(Di, x, y) => to_z3(x, depth, ctx).div(&to_z3(y, depth, ctx)),
+        Node(Mo, x, y) => to_z3(x, depth, ctx).rem(&to_z3(y, depth, ctx)),
         Node(Eq, c, v) => {
-            let cond = build_equation(c, ctx)._eq(&build_equation(v, ctx));
+            let cond = to_z3(c, depth, ctx)._eq(&to_z3(v, depth, ctx));
             cond.ite(&ast::Int::from_i64(ctx, 1), &ast::Int::from_i64(ctx, 0))
         }
         Leaf(V(x)) => ast::Int::from_i64(ctx, *x),
-        Leaf(op @ I(i)) => ast::Int::new_const(ctx, format!("I_{}", i)),
-        Leaf(op @ A(addr)) => ast::Int::new_const(ctx, format!("{:?}", addr)),
+        Leaf(I(i)) => ast::Int::new_const(ctx, format!("I_{}", i)),
+        Leaf(A(addr)) => ast::Int::new_const(ctx, format!("{:?}_{}", addr, depth)),
     }
 }
 
@@ -917,7 +954,7 @@ mod tests {
         let douze = ast::Int::from_i64(&ctx, 12);
         let az = abstract_interpret(&PROGRAM[0..18].to_vec(), &abs_init);
 
-        let eq = build_equation(&az.z, &ctx);
+        let eq = to_z3(&az.z, 0, &ctx);
         println!("{:?}", eq);
         solver.assert(&eq._eq(&douze));
         assert_eq!(solver.check(), SatResult::Sat);
