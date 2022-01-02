@@ -10,6 +10,11 @@ use std::collections::HashSet;
 use std::env;
 use std::fmt;
 use std::fmt::Display;
+use z3::ast::{Ast, Bool};
+use z3::*;
+extern crate env_logger;
+#[macro_use]
+extern crate log;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ALU {
@@ -28,7 +33,7 @@ enum Addr {
     W,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Copy)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Copy)]
 enum Operand {
     A(Addr),
     V(i64),
@@ -796,11 +801,27 @@ fn main() {
     println!("result: {:?}", res);
 }
 
+fn build_equation<'a>(ast: &AST, ctx: &'a z3::Context) -> z3::ast::Int<'a> {
+    match ast {
+        Node(Ad, x, y) => ast::Int::add(ctx, &[&build_equation(x, ctx), &build_equation(y, ctx)]),
+        Node(Mu, x, y) => ast::Int::mul(ctx, &[&build_equation(x, ctx), &build_equation(y, ctx)]),
+        Node(Di, x, y) => build_equation(x, ctx).div(&build_equation(y, ctx)),
+        Node(Mo, x, y) => build_equation(x, ctx).rem(&build_equation(y, ctx)),
+        Node(Eq, c, v) => {
+            let cond = build_equation(c, ctx)._eq(&build_equation(v, ctx));
+            cond.ite(&ast::Int::from_i64(ctx, 1), &ast::Int::from_i64(ctx, 0))
+        }
+        Leaf(V(x)) => ast::Int::from_i64(ctx, *x),
+        Leaf(op @ I(i)) => ast::Int::new_const(ctx, format!("I_{}", i)),
+        Leaf(op @ A(addr)) => ast::Int::new_const(ctx, format!("{:?}", addr)),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
+    //    #[test]
     fn symbolic_evaluation_matches_actual_evaluation() {
         let data = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 1, 6, 7, 8, 9];
         let concrete_init = ALU {
@@ -848,5 +869,59 @@ mod tests {
             z = eval_ast(&az.z, &data, &resolve);
         }
         assert_eq!(z, compute_result(&PROGRAM.to_vec(), &concrete_init).z);
+    }
+
+    #[test]
+    fn test_solving_for_model() {
+        let _ = env_logger::try_init();
+        let cfg = Config::new();
+        let ctx = Context::new(&cfg);
+        let x = ast::Int::new_const(&ctx, "x");
+        let y = ast::Int::new_const(&ctx, "y");
+        let zero = ast::Int::from_i64(&ctx, 0);
+        let two = ast::Int::from_i64(&ctx, 2);
+        let seven = ast::Int::from_i64(&ctx, 7);
+
+        let solver = Solver::new(&ctx);
+        let eq = x.gt(&y);
+        solver.assert(&eq);
+        solver.assert(&y.gt(&zero));
+        solver.assert(&y.rem(&seven)._eq(&two));
+        let x_plus_two = ast::Int::add(&ctx, &[&x, &two]);
+        solver.assert(&x_plus_two.gt(&seven));
+        assert_eq!(solver.check(), SatResult::Sat);
+
+        let model = solver.get_model().unwrap();
+        let xv = model.eval(&x, true).unwrap().as_i64().unwrap();
+        let yv = model.eval(&y, true).unwrap().as_i64().unwrap();
+        info!("x: {}", xv);
+        info!("y: {}", yv);
+        assert!(xv > yv);
+        assert!(yv % 7 == 2);
+        assert!(xv + 2 > 7);
+    }
+
+    #[test]
+    fn convert_ast_to_z3() {
+        let abs_init = AbsALU {
+            x: Leaf(A(X)),
+            y: Leaf(A(Y)),
+            z: Leaf(A(Z)),
+            w: Leaf(A(W)),
+        };
+
+        let _ = env_logger::try_init();
+        let cfg = Config::new();
+        let ctx = Context::new(&cfg);
+        let solver = Solver::new(&ctx);
+        let douze = ast::Int::from_i64(&ctx, 12);
+        let az = abstract_interpret(&PROGRAM[0..18].to_vec(), &abs_init);
+
+        let eq = build_equation(&az.z, &ctx);
+        println!("{:?}", eq);
+        solver.assert(&eq._eq(&douze));
+        assert_eq!(solver.check(), SatResult::Sat);
+        let model = solver.get_model().unwrap();
+        println!("model {}", model);
     }
 }
