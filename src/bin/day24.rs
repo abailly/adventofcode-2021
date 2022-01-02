@@ -6,6 +6,7 @@ use crate::AST::*;
 use core::i64::MAX;
 use core::i64::MIN;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::env;
 use std::fmt;
 use std::fmt::Display;
@@ -685,7 +686,7 @@ fn solve_ast(eq: &AST, tgt: i64) -> Vec<(u8, i64)> {
     let mut res = vec![];
     for i in 1..10 {
         let input = vec![i; 14];
-        for z in -100..100 {
+        for z in -10000..10000 {
             let mut retz = HashMap::new();
             retz.insert(Z, z);
             if eval_ast(eq, &input, &retz) == tgt {
@@ -697,22 +698,67 @@ fn solve_ast(eq: &AST, tgt: i64) -> Vec<(u8, i64)> {
     res
 }
 
+fn upper_bound_m(a: &AST, bounds: &HashMap<Addr, (i64, i64)>) -> i64 {
+    match a {
+        Node(Ad, x, y) => upper_bound_m(x, bounds) + upper_bound_m(y, bounds),
+        Node(Mu, x, y) => upper_bound_m(x, bounds) * upper_bound_m(y, bounds),
+        Node(Di, x, y) => upper_bound_m(x, bounds) / upper_bound_m(y, bounds),
+        Node(Mo, _x, y) => upper_bound_m(y, bounds),
+        Node(Eq, _, _) => 1,
+        Leaf(I(_)) => 9,
+        Leaf(V(x)) => *x,
+        Leaf(A(addr)) => bounds.get(addr).unwrap().1,
+    }
+}
+
+fn lower_bound_m(a: &AST, bounds: &HashMap<Addr, (i64, i64)>) -> i64 {
+    match a {
+        Node(Ad, x, y) => lower_bound_m(x, bounds) + lower_bound_m(y, bounds),
+        Node(Mu, x, y) => lower_bound_m(x, bounds) * lower_bound_m(y, bounds),
+        Node(Di, x, y) => lower_bound_m(x, bounds) / lower_bound_m(y, bounds),
+        Node(Mo, _, _) => 0,
+        Node(Eq, _, _) => 0,
+        Leaf(I(_)) => 1,
+        Leaf(V(x)) => *x,
+        Leaf(A(addr)) => bounds.get(addr).unwrap().0,
+    }
+}
+
+/// given some bounds on input z, compute the bounds of the equation's result
+fn minmax(eqs: &AST, zbounds: (i64, i64)) -> (i64, i64) {
+    let mut bds = HashMap::new();
+    bds.insert(Z, zbounds);
+    (lower_bound_m(eqs, &bds), upper_bound_m(eqs, &bds))
+}
+
 /// find sequence of inputs that solve the given system of equations
-fn solve(eqs: &mut Vec<AST>, goal: i64, res: &mut Vec<u8>) {
-    if eqs.is_empty() {
+fn solve(
+    eqs: &mut Vec<AST>,
+    cache: &mut HashSet<(u8, i64)>,
+    depth: u8,
+    goal: i64,
+    res: &mut Vec<u8>,
+) {
+    // shortcut exploration
+    if cache.contains(&(depth, goal)) {
         return;
     }
     if let Some(ast) = eqs.pop() {
         let solutions = solve_ast(&ast, goal);
-        println!("solving for {} = {}\n {:?}", ast, goal, solutions);
+        println!(
+            "({}) solving for {} = {}\n {:?} -> {:?}",
+            depth, ast, goal, solutions, res
+        );
+
         for (i, z) in solutions {
             res.insert(0, i);
-            solve(eqs, z, res);
+            solve(eqs, cache, depth + 1, z, res);
             if res.len() == 14 {
                 return;
             }
             res.remove(0);
         }
+        cache.insert((depth, goal));
         eqs.push(ast);
     }
 }
@@ -735,8 +781,17 @@ fn main() {
         println!("z: {}", res.z);
     }
 
-    let mut res = vec![];
-    solve(&mut zs, 0, &mut res);
+    let mut res: Vec<u8> = vec![];
+    let mut cache: HashSet<(u8, i64)> = HashSet::new();
+    println!(
+        "bounds {:?}",
+        zs.iter().fold((0, 0), |bds, eq| {
+            let mm = minmax(&eq, bds);
+            println!("z {:?} = {}", mm, eq);
+            mm
+        })
+    );
+    //solve(&mut zs, &mut cache, 0, 0, &mut res);
 
     println!("result: {:?}", res);
 }
