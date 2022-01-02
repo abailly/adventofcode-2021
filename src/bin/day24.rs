@@ -707,7 +707,6 @@ fn solve(eqs: &mut Vec<AST>, goal: i64, res: &mut Vec<u8>) {
         println!("solving for {} = {}\n {:?}", ast, goal, solutions);
         for (i, z) in solutions {
             res.insert(0, i);
-            println!("exploring solution {} {:?}", z, res);
             solve(eqs, z, res);
             if res.len() == 14 {
                 return;
