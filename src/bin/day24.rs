@@ -699,7 +699,7 @@ fn solve_ast(eq: &AST, tgt: i64) -> Vec<(u8, i64)> {
             }
         }
     }
-    res.sort_by(|a, b| b.cmp(a));
+    res.sort();
     res
 }
 
@@ -787,14 +787,32 @@ fn solve_z3(eqs: &Vec<AST>) -> Vec<Vec<u8>> {
     for (i, eq) in eqs.iter().enumerate() {
         let expr = to_z3(eq, i as u8, &ctx);
         if i == 13 {
+            let z3eq = expr._eq(&zero);
+            println!("eq({}) : {:?}", i, z3eq);
             solver.assert(&expr._eq(&zero));
         } else {
             let var = ast::Int::new_const(&ctx, format!("Z_{}", i + 1));
-            solver.assert(&expr._eq(&var));
+            let z3eq = expr._eq(&var);
+            println!("eq({}) : {:?}", i, z3eq);
+            solver.assert(&z3eq);
         }
     }
     // Z initial value is 0
     solver.assert(&ast::Int::new_const(&ctx, "Z_0")._eq(&zero));
+
+    //solver.push();
+    let sol: Vec<u8> = vec![2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2];
+    // add constraint to find larger solution to solver
+    let ctr = (0..14).fold((0, ast::Int::from_i64(&ctx, 0)), |(v, e), i| {
+        let exp = pow(10u64, 13 - i);
+        let nv = v + exp * sol[i] as u64;
+        let index = ast::Int::new_const(&ctx, format!("I_{}", i));
+        (nv, (e + index * ast::Int::from_u64(&ctx, exp)))
+    });
+
+    let nequation = ctr.1.lt(&ast::Int::from_u64(&ctx, ctr.0));
+    println!("eq: {:?}", nequation);
+    solver.assert(&nequation);
 
     let mut res = vec![];
 
@@ -808,14 +826,15 @@ fn solve_z3(eqs: &Vec<AST>) -> Vec<Vec<u8>> {
         }
         println!("solution {:?}", sol);
         // add constraint to find larger solution to solver
+        //        solver.pop(1);
         let ctr = (0..14).fold((0, ast::Int::from_i64(&ctx, 0)), |(v, e), i| {
             let exp = pow(10u64, 13 - i);
             let nv = v + exp * sol[i] as u64;
             let index = ast::Int::new_const(&ctx, format!("I_{}", i));
             (nv, (e + index * ast::Int::from_u64(&ctx, exp)))
         });
-        solver.push();
-        let nequation = ctr.1.gt(&ast::Int::from_u64(&ctx, ctr.0));
+        //        solver.push();
+        let nequation = ctr.1.lt(&ast::Int::from_u64(&ctx, ctr.0));
         println!("eq: {:?}", nequation);
         solver.assert(&nequation);
         res.push(sol);
@@ -840,6 +859,11 @@ fn main() {
         zs.push(res.z.clone());
         println!("z: {}", res.z);
     }
+
+    let mut result = vec![];
+    let mut cache = HashSet::new();
+
+    solve(&mut zs, &mut cache, 0, 0, &mut result);
 
     let res = solve_z3(&zs);
 
