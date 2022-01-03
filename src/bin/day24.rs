@@ -800,19 +800,38 @@ fn solve_z3(eqs: &Vec<AST>) -> Vec<Vec<u8>> {
     // Z initial value is 0
     solver.assert(&ast::Int::new_const(&ctx, "Z_0")._eq(&zero));
 
+    // smallest so far 62911981716511
+    //                 62911941716111
+    // there's no solution starting with 5
     //solver.push();
-    let sol: Vec<u8> = vec![2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2];
-    // add constraint to find larger solution to solver
-    let ctr = (0..14).fold((0, ast::Int::from_i64(&ctx, 0)), |(v, e), i| {
-        let exp = pow(10u64, 13 - i);
-        let nv = v + exp * sol[i] as u64;
-        let index = ast::Int::new_const(&ctx, format!("I_{}", i));
-        (nv, (e + index * ast::Int::from_u64(&ctx, exp)))
-    });
-
-    let nequation = ctr.1.lt(&ast::Int::from_u64(&ctx, ctr.0));
-    println!("eq: {:?}", nequation);
-    solver.assert(&nequation);
+    let c0 = ast::Int::new_const(&ctx, "I_0")._eq(&ast::Int::from_u64(&ctx, 6));
+    let c1 = ast::Int::new_const(&ctx, "I_1")._eq(&ast::Int::from_u64(&ctx, 2));
+    let c2 = ast::Int::new_const(&ctx, "I_2")._eq(&ast::Int::from_u64(&ctx, 9));
+    let c3 = ast::Int::new_const(&ctx, "I_3")._eq(&ast::Int::from_u64(&ctx, 1));
+    let c4 = ast::Int::new_const(&ctx, "I_4")._eq(&ast::Int::from_u64(&ctx, 1));
+    let c5 = ast::Int::new_const(&ctx, "I_5")._eq(&ast::Int::from_u64(&ctx, 9));
+    let c6 = ast::Int::new_const(&ctx, "I_6").lt(&ast::Int::from_u64(&ctx, 8));
+    // let c7 = ast::Int::new_const(&ctx, "I_7")._eq(&ast::Int::from_u64(&ctx, 1));
+    // let c8 = ast::Int::new_const(&ctx, "I_8")._eq(&ast::Int::from_u64(&ctx, 7));
+    // let c9 = ast::Int::new_const(&ctx, "I_9")._eq(&ast::Int::from_u64(&ctx, 1));
+    // let c10 = ast::Int::new_const(&ctx, "I_10")._eq(&ast::Int::from_u64(&ctx, 6));
+    // let c11 = ast::Int::new_const(&ctx, "I_11")._eq(&ast::Int::from_u64(&ctx, 5));
+    // let c12 = ast::Int::new_const(&ctx, "I_12")._eq(&ast::Int::from_u64(&ctx, 1));
+    // let c13 = ast::Int::new_const(&ctx, "I_13")._eq(&ast::Int::from_u64(&ctx, 1));
+    solver.assert(&c0);
+    solver.assert(&c1);
+    solver.assert(&c2);
+    solver.assert(&c3);
+    solver.assert(&c4);
+    solver.assert(&c5);
+    solver.assert(&c6);
+    // solver.assert(&c7);
+    // solver.assert(&c8);
+    // solver.assert(&c9);
+    // solver.assert(&c10);
+    // solver.assert(&c11);
+    // solver.assert(&c12);
+    // solver.assert(&c13);
 
     let mut res = vec![];
 
@@ -860,10 +879,10 @@ fn main() {
         println!("z: {}", res.z);
     }
 
-    let mut result = vec![];
-    let mut cache = HashSet::new();
+    // let mut result = vec![];
+    // let mut cache = HashSet::new();
 
-    solve(&mut zs, &mut cache, 0, 0, &mut result);
+    // solve(&mut zs, &mut cache, 0, 0, &mut result);
 
     let res = solve_z3(&zs);
 
